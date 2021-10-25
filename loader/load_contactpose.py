@@ -30,11 +30,12 @@ def get_all_contactpose_samples():
     print('Reading ContactPose dataset')
     for participant_id in tqdm(range(1, 2)):
         for intent in ['handoff', 'use']:
-            for object_name in get_object_names(participant_id, intent):
+            print(intent)
+            for object_name in get_object_names(participant_id, intent):                
                 cp = ContactPose(participant_id, intent, object_name, load_mano=False)
                 if cp._valid_hands != [1]:  # If anything else than just the right hand, remove
-                    continue
-
+                    #print(object_name)   #delete "hand"、"palm_print"   以及  handoff:bowl、utah_teapot;   use:banana、bowl、camera、ps_controller、water_bottle
+                    continue              
                 samples.append((participant_id, intent, object_name, cp))
 
     print('Valid ContactPose samples:', len(samples))
@@ -113,8 +114,20 @@ if __name__ == '__main__':
     contactpose_dataset = get_all_contactpose_samples()
 
     # Generate Perturbed ContactPose
-    generate_contactpose_dataset(contactpose_dataset, train_file, 0.0, 0.8, num_pert=16, aug_trans=aug_trans, aug_rot=aug_rot, aug_pca=aug_pca)
-    generate_contactpose_dataset(contactpose_dataset, test_file, 0.8, 1.0, num_pert=4, aug_trans=aug_trans, aug_rot=aug_rot, aug_pca=aug_pca)
+    """
+    加扰动：在给定gt的基础上添加随机数进行变换
+    Generates a dataset pkl file and does preprocessing for the PyTorch dataloader
+    :param dataset: List of ContactPose objects
+    :param output_file: path to output pkl file
+    :param low_p: Lower split location of the dataset, [0-1),数据集从len*low_p开始存入.pkl，
+    :param high_p: Upper split location of the dataset, [0-1)，数据集从len*high_p结束存入.pkl，
+    :param num_pert: Number of random perturbations which are computed for every true dataset sample，扰动的数量
+    :param aug_trans: Std deviation of hand translation noise added to the datasets, meters  ，这三个参数都是扰动因子
+    :param aug_rot: Std deviation of hand rotation noise, axis-angle radians
+    :param aug_pca: Std deviation of hand pose noise, PCA units
+    """
+    #generate_contactpose_dataset(contactpose_dataset, train_file, 0.0, 1.0, num_pert=1, aug_trans=aug_trans, aug_rot=aug_rot, aug_pca=aug_pca)    
+    # generate_contactpose_dataset(contactpose_dataset, test_file, 0.8, 1.0, num_pert=4, aug_trans=aug_trans, aug_rot=aug_rot, aug_pca=aug_pca)
 
-    # Generate "Small Refinements" dataset for optimizing ground-truth thermal contact
-    generate_contactpose_dataset(contactpose_dataset, fine_file, 0.0, 1.0, num_pert=1, aug_trans=0, aug_rot=0, aug_pca=0)
+    # # Generate "Small Refinements" dataset for optimizing ground-truth thermal contact
+    generate_contactpose_dataset(contactpose_dataset, fine_file, 0.0, 1.0, num_pert=1, aug_trans=0, aug_rot=0, aug_pca=0)  #不加扰动

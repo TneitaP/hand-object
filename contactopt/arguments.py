@@ -24,7 +24,7 @@ def parse_dataset(args):
 def run_contactopt_parse_args():
     parser = argparse.ArgumentParser(description='Alignment networks training')
     parser.add_argument('--batch_size', default=64, type=int)
-    parser.add_argument('--split', default='aug', type=str,choices=['demo','aug','fine','im'])
+    parser.add_argument('--split', default='fine', type=str,choices=['demo','aug','fine','im'])
     parser.add_argument('--lr', type=float)
     parser.add_argument('--n_iter', type=int)
     parser.add_argument('--partial', default=-1, type=int, help='Only run for n batches')
@@ -57,7 +57,6 @@ def run_contactopt_parse_args():
         args.batch_size = 1
 
     return args
-
 
 
 

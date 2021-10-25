@@ -159,7 +159,6 @@ def run_contactopt(args):
 if __name__ == '__main__':
     util.hack_filedesciptor()
     args = arguments.run_contactopt_parse_args()
-
     if args.split == 'aug':     # Settings defaults for Perturbed ContactPose
         defaults = {'lr': 0.01,
                     'n_iter': 250,
@@ -181,7 +180,48 @@ if __name__ == '__main__':
                     'rand_re_rot': 5,
                     'w_obj_rot': 0,
                     'vis_method': 1}
-
+    elif args.split == 'im' or args.split == 'demo':    # Settings defaults for image-based pose estimates
+            defaults = {'lr': 0.01,
+                        'n_iter': 250,
+                        'w_cont_hand': 2.5,
+                        'sharpen_thresh': -1,
+                        'ncomps': 15,
+                        'w_cont_asym': 2,
+                        'w_opt_trans': 0.3,
+                        'w_opt_rot': 1,
+                        'w_opt_pose': 1.0,
+                        'caps_rad': 0.001,
+                        'cont_method': 0,
+                        'caps_top': 0.0005,
+                        'caps_bot': -0.001,
+                        'w_pen_cost': 320,
+                        'pen_it': 0,
+                        'rand_re': 8,
+                        'rand_re_trans': 0.02,
+                        'rand_re_rot': 5,
+                        'w_obj_rot': 0,
+                        'vis_method': 1}
+    elif args.split == 'fine':  # Settings defaults for small-scale refinement
+        defaults = {'lr': 0.003,
+                    'n_iter': 250,
+                    'w_cont_hand': 0,
+                    'sharpen_thresh': 0.3,
+                    'ncomps': 15,
+                    'w_cont_asym': 4,
+                    'w_opt_trans': 0.03,
+                    'w_opt_rot': 1.0,
+                    'w_opt_pose': 1.0,
+                    'caps_rad': 0.001,
+                    'cont_method': 5,
+                    'caps_top': 0.0005,
+                    'caps_bot': -0.001,
+                    'w_pen_cost': 600,
+                    'pen_it': 0,
+                    'rand_re': 1,
+                    'rand_re_trans': 0.00,
+                    'rand_re_rot': 0,
+                    'w_obj_rot': 0,
+                    'vis_method': 5}
     for k in defaults.keys():   # Override arguments that have not been manually set with defaults
         if vars(args)[k] is None:
             vars(args)[k] = defaults[k]
