@@ -4,3 +4,4 @@ mano/models/
 contactopt/__pycache__
 loader/ContactPose/__pycache__
 mano/__pycache__
+mano/webuser/__pycache__

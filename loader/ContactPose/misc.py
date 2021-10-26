@@ -10,7 +10,7 @@ import cv2
 import matplotlib.pyplot as plt
 
 try:
-  from thirdparty.mano.webuser.smpl_handpca_wrapper_HAND_only \
+  from mano.webuser.smpl_handpca_wrapper_HAND_only \
     import load_model as load_mano_model
   MANO_PRESENT = True
 except ImportError:

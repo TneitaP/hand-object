@@ -20,7 +20,8 @@ import matplotlib as mpl
 import sklearn.metrics
 import trimesh
 import os
-
+from get_mask import load_face,render_mesh
+import cv2
 SAVE_OBJ_FOLDER = './eval/saveobj'
 
 
@@ -101,6 +102,13 @@ def run_eval(args):
             if args.vis:
                 print('In vs GT\n', pprint.pformat(all_data[-1][0]))
                 print('Out vs GT\n', pprint.pformat(all_data[-1][1]))
+                face = load_face()
+                oriImage = cv2.imread(R'F:\HOinter_data\ContactPose\images\full1_handoff\apple\images_full\kinect2_left\color\frame000.png')
+                focal = [477.19634220979475,275.5041232079494]
+                princpt = [520.6131697223657,521.3136402402431]
+                new_img = render_mesh(oriImage,s['gt_ho'].hand_verts,face,focal,princpt)
+                cv2.imshow("vcl",new_img/255)
+                cv2.waitKey(0)
                 if args.split == 'im_pred_trans':
                     vis_sample(s['gt_ho'], s['in_ho'], s['out_ho'], mje_in=all_data[-1][0]['objalign_hand_joints'], mje_out=all_data[-1][1]['objalign_hand_joints'])
                 else:

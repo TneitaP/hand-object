@@ -157,8 +157,7 @@ class ContactPose(object):
         return
       ContactPose._mano_dicts = []
       for hand_name in ('LEFT', 'RIGHT'):
-        filename = osp.join('..', 'thirdparty',
-                            'mano', 'models',
+        filename = osp.join( 'mano', 'models',
                             'MANO_{:s}.pkl'.format(hand_name))
         with open(filename, 'rb') as f:
           ContactPose._mano_dicts.append(pickle.load(f, encoding='latin1'))
@@ -305,5 +304,4 @@ class ContactPose(object):
     """
     if frame_idx is None:
       frame_idx = np.random.choice(len(self))
-    return mutils.load_mano_meshes(self.mano_params, ContactPose._mano_dicts,
-      self._oTh[frame_idx])
+    return mutils.load_mano_meshes(self.mano_params, ContactPose._mano_dicts,self._oTh[frame_idx])

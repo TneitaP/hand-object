@@ -12,7 +12,7 @@ import contactopt.arguments as arguments
 from contactopt.hand_object import HandObject
 from contactopt.run_contactopt import run_contactopt
 import transforms3d.quaternions as txq
-
+import pickle
 def pose_matrix(pose):
   T = np.eye(3)
   T[:3, 3]  = pose['translation']
@@ -85,4 +85,20 @@ if __name__ == '__main__':
     args.test_dataset = dataset
     args.split = 'user'
 
-    run_contactopt(args)    #将所有参数包括dataset全部送入run_contactopt()函数内部
+    #run_contactopt(args)    #将所有参数包括dataset全部送入run_contactopt()函数内部
+
+########################create mask################################
+    all_data = list()
+    all_data.append({
+        'gt_verts': dataset[0]['ho_gt'].hand_verts, 
+        'gt_joints': dataset[0]['ho_gt'].hand_joints, 
+        'hand_pose':dataset[0]['ho_gt'].hand_pose,
+        'hand_beta':dataset[0]['ho_gt'].hand_beta,
+        'hand_mTc': dataset[0]['ho_gt'].hand_mTc,
+        'obj_faces':dataset[0]['ho_gt'].obj_faces,
+        'obj_verts':dataset[0]['ho_gt'].obj_verts
+        })
+    out_file = './data/banana_gt.pkl'.format(args.split)
+    print('Saving to {}. Len {}'.format(out_file, len(all_data)))
+    f =  open(out_file, 'wb')
+    pickle.dump(all_data,f)

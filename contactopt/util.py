@@ -19,7 +19,7 @@ from open3d import utility as o3du
 from open3d import visualization as o3dv
 from manopth.manolayer import ManoLayer
 import trimesh
-
+import pickle
 SAMPLE_VERTS_NUM = 2048
 DEEPCONTACT_BIN_WEIGHTS_FILE = 'data/class_bin_weights.out'
 DEEPCONTACT_NUM_BINS = 10
@@ -52,7 +52,15 @@ def forward_mano(mano_model, pose, beta, tforms):
     batch_size = pose.shape[0]
 
     verts, joints = mano_model(pose, beta)
-
+    
+    all_data = list()
+    all_data.append({
+        'gt_verts': verts, 
+        'gt_joints': joints
+        })
+    out_file = './data/model_out.pkl'
+    f =  open(out_file, 'wb')
+    pickle.dump(all_data,f)
     verts_homo = torch.cat((verts / 1000, torch.ones(batch_size, verts.shape[1], 1, device=device)), 2)
     joints_homo = torch.cat((joints / 1000, torch.ones(batch_size, joints.shape[1], 1, device=device)), 2)
 
