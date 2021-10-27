@@ -34,10 +34,10 @@ def get_all_contactpose(args):
     print('Valid ContactPose samples:', len(samples))
 
     return samples
-def create_renderers(args,camera_name):
+def create_renderers(object_name,camera_name):
     # renderer for object mesh
     # note the mesh_scale, ContactPose object models are in units of mm 
-    object_renderer = rutils.DepthRenderer(args.object_name, cp.K(camera_name), camera_name, mesh_scale=1e-3)
+    object_renderer = rutils.DepthRenderer(object_name, cp.K(camera_name), camera_name, mesh_scale=1e-3)
 
     # hand renderers
     hand_renderers = []
@@ -126,11 +126,10 @@ if __name__=="__main__":
             label = 0
             if not os.path.exists(tmp):
                 os.makedirs(image_root.replace("images","mask"))
-            #for frame_idx in next(os.walk(image_root))[2]:
+            renderers = create_renderers(samples[idx][2],camera_name)
             for frame_idx, image_name in enumerate(tqdm(next(os.walk(image_root))[2])):
                 oriImage_path = os.path.join(image_root,image_name)
                 color_im = cv2.imread(oriImage_path)
-                renderers = create_renderers(args,camera_name)
-
+                #renderers = create_renderers(samples[idx][2],camera_name)
                 mask_path = oriImage_path.replace("images","mask")
                 show_rendering_output(renderers, color_im, camera_name, frame_idx, mask_path, crop_size, write=True)
