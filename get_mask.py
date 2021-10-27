@@ -19,7 +19,6 @@ def get_all_contactpose(args):
     :return: list of (participant_num, intent, object_name, ContactPose_object)
     """
     samples = []
-
     print('Reading ContactPose dataset')
     for participant_id in tqdm(range(1,args.p_num)):
         for intent in args.intent:
@@ -117,7 +116,7 @@ if __name__=="__main__":
 
     samples = get_all_contactpose(args)
     crop_size = -1   #是否进行裁剪
-
+    print("begin")
     for idx in range(len(samples)):
         cp = samples[idx][3]
         for camera_name in ('kinect2_left', 'kinect2_right', 'kinect2_middle'):
@@ -131,4 +130,4 @@ if __name__=="__main__":
                 oriImage_path = os.path.join(image_root,image_name)
                 color_im = cv2.imread(oriImage_path)
                 mask_path = oriImage_path.replace("images","mask")
-                show_rendering_output(renderers, color_im, camera_name, frame_idx, mask_path, crop_size, write=True)
+                show_rendering_output(renderers, color_im, camera_name, frame_idx, mask_path, crop_size, write=False,vis=True)
