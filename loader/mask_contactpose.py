@@ -1,6 +1,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 # Code by Samarth Brahmbhatt
 
+from genericpath import exists
 from pickle import TRUE
 import sys
 import os
@@ -104,7 +105,7 @@ def show_rendering_output(renderers, color_im, camera_name, frame_idx, save_path
     
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description='create mask on contactpose')
-    parser.add_argument('--p_num', default=2, help='Number of folders, which the max value is 50')
+    parser.add_argument('--p_num', default=3, help='Number of folders, which the max value is 50')
     parser.add_argument('--intent',  default=["handoff","use"],type=str, choices=["use","handoff","use,handoff"])
     parser.add_argument('--object_name',default="banana", choices=["apple","banana","bowl"])
     parser.add_argument('--pen', action='store_true')
@@ -115,10 +116,12 @@ if __name__=="__main__":
     samples = get_all_contactpose(args)
     crop_size = -1   #是否进行裁剪
     print("begin")
-    for idx in range(len(samples)):
+    for idx in range(65,len(samples)):
         cp = samples[idx][3]
         for camera_name in ('kinect2_left', 'kinect2_right', 'kinect2_middle'):
             image_root = os.path.join(samples[idx][3].data_tmp_dir,"images_full",camera_name,"color")
+            if not exists(image_root):
+                continue
             tmp = image_root.replace("images","mask")
             label = 0
             if not os.path.exists(tmp):
