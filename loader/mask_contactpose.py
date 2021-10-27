@@ -115,7 +115,7 @@ if __name__=="__main__":
     samples = get_all_contactpose(args)
     crop_size = -1   #是否进行裁剪
     print("begin")
-    for idx in range(len(samples)):
+    for idx in range(43,len(samples)):
         cp = samples[idx][3]
         for camera_name in ('kinect2_left', 'kinect2_right', 'kinect2_middle'):
             image_root = os.path.join(samples[idx][3].data_tmp_dir,"images_full",camera_name,"color")
