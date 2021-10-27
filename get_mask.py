@@ -27,7 +27,7 @@ def get_all_contactpose(args):
             for object_name in get_object_names(participant_id, intent):                
                 cp = ContactPose(participant_id, intent, object_name)
                 if cp._valid_hands != [1]:  # If anything else than just the right hand, remove
-                    #print(object_name)   #delete "hand"、"palm_print"   以及  handoff:bowl、utah_teapot;   use:banana、bowl、camera、ps_controller、water_bottle
+                    #print(object_name)   #delete "hands"、"palm_print"   以及  handoff:bowl、utah_teapot;   use:banana、bowl、camera、ps_controller、water_bottle
                     continue              
                 samples.append((participant_id, intent, object_name, cp))
 
@@ -118,7 +118,7 @@ if __name__=="__main__":
     samples = get_all_contactpose(args)
     crop_size = -1   #是否进行裁剪
 
-    for idx in range(37,len(samples)):
+    for idx in range(len(samples)):
         cp = samples[idx][3]
         for camera_name in ('kinect2_left', 'kinect2_right', 'kinect2_middle'):
             image_root = os.path.join(samples[idx][3].data_tmp_dir,"images_full",camera_name,"color")
@@ -130,6 +130,5 @@ if __name__=="__main__":
             for frame_idx, image_name in enumerate(tqdm(next(os.walk(image_root))[2])):
                 oriImage_path = os.path.join(image_root,image_name)
                 color_im = cv2.imread(oriImage_path)
-                #renderers = create_renderers(samples[idx][2],camera_name)
                 mask_path = oriImage_path.replace("images","mask")
                 show_rendering_output(renderers, color_im, camera_name, frame_idx, mask_path, crop_size, write=True)
