@@ -13,7 +13,7 @@ from contactopt.hand_object import HandObject
 from contactopt.util import *
 
 sys.path.append('../ContactPose')   # Change this path to point to the ContactPose repo
-from ContactPose.contactpose_dataset import get_object_names, ContactPose
+from loader.ContactPose.contactpose_dataset import get_object_names, ContactPose
 
 object_cut_list = []
 # object_cut_list = ['eyeglasses']
