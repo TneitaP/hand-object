@@ -79,19 +79,20 @@ def show_rendering_output(renderers, color_im, camera_name, frame_idx, save_path
     #both_hands_rendering = np.dstack(both_hands_rendering).max(2)
 
     mask_result = color_im.copy()   
+    object_rendering[object_rendering>0] = 255
+    if len(both_hands_rendering)==1:
+        both_hands_rendering[0][both_hands_rendering[0]>0] = 255
+        mask_result[:,:,0] = object_rendering
+        mask_result[:,:,1] = 0
+        mask_result[:,:,2] = both_hands_rendering[0]
+    else:
+        both_hands_rendering[0][both_hands_rendering[0]>0] = 255
+        both_hands_rendering[1][both_hands_rendering[1]>0] = 255
+        mask_result[:,:,0] = object_rendering
+        mask_result[:,:,1] = both_hands_rendering[0]
+        mask_result[:,:,2] = both_hands_rendering[1]
+        
     if write:
-        object_rendering[object_rendering>0] = 255
-        if len(both_hands_rendering)==1:
-            both_hands_rendering[0][both_hands_rendering[0]>0] = 255
-            mask_result[:,:,0] = object_rendering
-            mask_result[:,:,1] = 0
-            mask_result[:,:,2] = both_hands_rendering[0]
-        else:
-            both_hands_rendering[0][both_hands_rendering[0]>0] = 255
-            both_hands_rendering[1][both_hands_rendering[1]>0] = 255
-            mask_result[:,:,0] = object_rendering
-            mask_result[:,:,1] = both_hands_rendering[0]
-            mask_result[:,:,2] = both_hands_rendering[1]
         cv2.imwrite(save_path,mask_result)
 
     """show""" 
@@ -105,7 +106,7 @@ def show_rendering_output(renderers, color_im, camera_name, frame_idx, save_path
     
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description='create mask on contactpose')
-    parser.add_argument('--p_num', default=3, help='Number of folders, which the max value is 50')
+    parser.add_argument('--p_num', default=2, help='Number of folders, which the max value is 50')
     parser.add_argument('--intent',  default=["handoff","use"],type=str, choices=["use","handoff","use,handoff"])
     parser.add_argument('--object_name',default="banana", choices=["apple","banana","bowl"])
     parser.add_argument('--pen', action='store_true')
@@ -115,20 +116,18 @@ if __name__=="__main__":
 
     samples = get_all_contactpose(args)
     crop_size = -1   #是否进行裁剪
-    print("begin")
-    for idx in range(65,len(samples)):
+    for idx in range(len(samples)):
         cp = samples[idx][3]
         for camera_name in ('kinect2_left', 'kinect2_right', 'kinect2_middle'):
             image_root = os.path.join(samples[idx][3].data_tmp_dir,"images_full",camera_name,"color")
             if not exists(image_root):
                 continue
             tmp = image_root.replace("images","mask")
-            label = 0
             if not os.path.exists(tmp):
-                os.makedirs(image_root.replace("images","mask"))
+                os.makedirs(tmp)
             renderers = create_renderers(samples[idx][2],camera_name)
             for frame_idx, image_name in enumerate(tqdm(next(os.walk(image_root))[2])):
                 oriImage_path = os.path.join(image_root,image_name)
                 color_im = cv2.imread(oriImage_path)
                 mask_path = oriImage_path.replace("images","mask")
-                show_rendering_output(renderers, color_im, camera_name, frame_idx, mask_path, crop_size, write=TRUE)
+                show_rendering_output(renderers, color_im, camera_name, frame_idx, mask_path, crop_size, write=False)

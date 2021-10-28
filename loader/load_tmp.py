@@ -33,6 +33,7 @@ def get_all_contactpose_samples():
             print(intent)
             for object_name in get_object_names(participant_id, intent):                
                 cp = ContactPose(participant_id, intent, object_name, load_mano=False)
+                """ 如果左右手都考虑的话，屏蔽这段代码 """
                 # if cp._valid_hands != [1]:  # If anything else than just the right hand, remove
                 #     #print(object_name)   #delete "hand"、"palm_print"   以及  handoff:bowl、utah_teapot;   use:banana、bowl、camera、ps_controller、water_bottle
                 #     continue              
@@ -64,28 +65,60 @@ def generate_contactpose_dataset(dataset, output_file, low_p, high_p, num_pert=1
         print('Some objects are being removed', object_cut_list)
 
     def process_sample(s, idx):
-        ho_gt = HandObject()
-        ho_gt.load_from_contactpose(s[3])
-        sample_list = []
-        # print('Processing', idx)
+        if s[1]=='use' and s[2]=='banana':
+            print("use + banana")
+        new_s3 = []
+        if s[3].mano_params[0]!=None:
+            del s[3].mano_params[0]
+            new_s3.append(s[3])
+            del s[3].mano_params[1]
+            new_s3.append(s[3])
 
-        for i in range(num_pert):
-            # Since we're only saving pointers to the data, it's memory efficient
-            sample_data = dict()
+            sample_list = []
+            for i in range(2):
+                ho_gt = HandObject()
+                ho_gt.load_from_contactpose(new_s3[i])                
+                # print('Processing', idx)
+                for i in range(num_pert):
+                    # Since we're only saving pointers to the data, it's memory efficient
+                    sample_data = dict()
 
-            ho_aug = HandObject()
-            aug_t = np.random.randn(3) * aug_trans
-            aug_p = np.concatenate((np.random.randn(3) * aug_rot, np.random.randn(15) * aug_pca)).astype(np.float32)
-            ho_aug.load_from_ho(ho_gt, aug_p, aug_t)
+                    ho_aug = HandObject()
+                    aug_t = np.random.randn(3) * aug_trans
+                    aug_p = np.concatenate((np.random.randn(3) * aug_rot, np.random.randn(15) * aug_pca)).astype(np.float32)
+                    ho_aug.load_from_ho(ho_gt, aug_p, aug_t)
 
-            sample_data['ho_gt'] = ho_gt
-            sample_data['ho_aug'] = ho_aug
-            sample_data['obj_sampled_idx'] = np.random.randint(0, len(ho_gt.obj_verts), SAMPLE_VERTS_NUM)
-            sample_data['hand_feats_aug'], sample_data['obj_feats_aug'] = ho_aug.generate_pointnet_features(sample_data['obj_sampled_idx'])
+                    sample_data['ho_gt'] = ho_gt
+                    sample_data['ho_aug'] = ho_aug
+                    sample_data['obj_sampled_idx'] = np.random.randint(0, len(ho_gt.obj_verts), SAMPLE_VERTS_NUM)
+                    sample_data['hand_feats_aug'], sample_data['obj_feats_aug'] = ho_aug.generate_pointnet_features(sample_data['obj_sampled_idx'])
 
-            sample_list.append(sample_data)
+                    sample_list.append(sample_data)
 
-        return sample_list
+            return sample_list
+        else:
+            ho_gt = HandObject()
+            ho_gt.load_from_contactpose(s[3])
+            sample_list = []
+            # print('Processing', idx)
+
+            for i in range(num_pert):
+                # Since we're only saving pointers to the data, it's memory efficient
+                sample_data = dict()
+
+                ho_aug = HandObject()
+                aug_t = np.random.randn(3) * aug_trans
+                aug_p = np.concatenate((np.random.randn(3) * aug_rot, np.random.randn(15) * aug_pca)).astype(np.float32)
+                ho_aug.load_from_ho(ho_gt, aug_p, aug_t)
+
+                sample_data['ho_gt'] = ho_gt
+                sample_data['ho_aug'] = ho_aug
+                sample_data['obj_sampled_idx'] = np.random.randint(0, len(ho_gt.obj_verts), SAMPLE_VERTS_NUM)
+                sample_data['hand_feats_aug'], sample_data['obj_feats_aug'] = ho_aug.generate_pointnet_features(sample_data['obj_sampled_idx'])
+
+                sample_list.append(sample_data)
+
+            return sample_list
 
     parallel = True
     if parallel:
@@ -126,8 +159,8 @@ if __name__ == '__main__':
     :param aug_rot: Std deviation of hand rotation noise, axis-angle radians
     :param aug_pca: Std deviation of hand pose noise, PCA units
     """
-    #generate_contactpose_dataset(contactpose_dataset, train_file, 0.0, 1.0, num_pert=1, aug_trans=aug_trans, aug_rot=aug_rot, aug_pca=aug_pca)    
-    # generate_contactpose_dataset(contactpose_dataset, test_file, 0.8, 1.0, num_pert=4, aug_trans=aug_trans, aug_rot=aug_rot, aug_pca=aug_pca)
+    generate_contactpose_dataset(contactpose_dataset, train_file, 0.0, 1.0, num_pert=1, aug_trans=aug_trans, aug_rot=aug_rot, aug_pca=aug_pca)    
+    #generate_contactpose_dataset(contactpose_dataset, test_file, 0.8, 1.0, num_pert=4, aug_trans=aug_trans, aug_rot=aug_rot, aug_pca=aug_pca)
 
     # # Generate "Small Refinements" dataset for optimizing ground-truth thermal contact
-    generate_contactpose_dataset(contactpose_dataset, fine_file, 0.0, 1.0, num_pert=1, aug_trans=0, aug_rot=0, aug_pca=0)  #不加扰动
+    #generate_contactpose_dataset(contactpose_dataset, fine_file, 0.0, 1.0, num_pert=1, aug_trans=0, aug_rot=0, aug_pca=0)  #不加扰动

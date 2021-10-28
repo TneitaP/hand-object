@@ -45,7 +45,7 @@ def run_contactopt(args):
     读取输入的设置：args，先使用DeepContact估计一个接触，然后对其进行优化，并保存为.pkl文件
     """
     print('Running split', args.split)
-    dataset = ContactDBDataset(args.test_dataset, min_num_cont=args.min_cont)  #数据读取
+    dataset = ContactDBDataset(args.train_dataset, min_num_cont=args.min_cont)  #数据读取
     shuffle = args.vis or args.partial > 0 #判断是否重新打乱数据
     print('Shuffle:', shuffle)
     test_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=shuffle, num_workers=6, collate_fn=ContactDBDataset.collate_fn)
@@ -139,7 +139,7 @@ def run_contactopt(args):
             in_ho.load_from_batch(data['hand_beta_aug'], data['hand_pose_aug'], data['hand_mTc_aug'], hand_contact_target, obj_contact_upscale, data['mesh_aug'], b)
             out_ho.load_from_batch(data['hand_beta_aug'], out_pose, out_mTc, data['hand_contact_gt'], data['obj_contact_gt'], data['mesh_aug'], b, obj_rot=obj_rot)
             # out_ho.calc_dist_contact(hand=True, obj=True)
-
+            
             all_data.append({'gt_ho': gt_ho, 'in_ho': in_ho, 'out_ho': out_ho})
 
         if args.vis:
