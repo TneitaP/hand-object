@@ -122,20 +122,20 @@ if __name__=="__main__":
     parser.add_argument('--p_num', default=2, help='Number of folders, which the max value is 50')
     parser.add_argument('--intent',  default=["handoff","use"],type=str, choices=["use","handoff","use,handoff"])
     parser.add_argument('--object_name',default="banana", choices=["apple","banana","bowl"])
-    parser.add_argument('--split',default='fine', type=str,choices=['demo','aug','fine','im'])
+    parser.add_argument('--split',default='aug', type=str,choices=['demo','aug','fine','im'])
     parser.add_argument('--saveobj', action='store_true')
     parser.add_argument('--partial', default=-1, type=int, help='Only run for n samples')
     args = parser.parse_args()
 
     samples = get_all_contactpose(args)
     crop_size = -1   #是否进行裁剪
-    for idx in range(7,len(samples)):
+    for idx in range(30,len(samples)):
         cp = samples[idx][3]
         for camera_name in ('kinect2_left', 'kinect2_right', 'kinect2_middle'):
             image_root = os.path.join(samples[idx][3].data_tmp_dir,"images_full",camera_name,"color")
             if not exists(image_root):
                 continue
-            tmp = image_root.replace("images","mask_randn")
+            tmp = image_root.replace("images","mask_perturbed")
             if not os.path.exists(tmp):
                 os.makedirs(tmp)
             in_file = './data/optimized_{}.pkl'.format(args.split)
@@ -146,6 +146,6 @@ if __name__=="__main__":
             for frame_idx, image_name in enumerate(tqdm(next(os.walk(image_root))[2])):
                 oriImage_path = os.path.join(image_root,image_name)
                 color_im = cv2.imread(oriImage_path)
-                mask_path = oriImage_path.replace("images","mask_randn")
+                mask_path = oriImage_path.replace("images","mask_perturbed")
                 show_rendering_output(renderers, color_im, camera_name, frame_idx, mask_path, crop_size, write=True,vis=False)
 
