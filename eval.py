@@ -117,7 +117,7 @@ def run_eval(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run eval on fitted pkl')
-    parser.add_argument('--split', default='fine', type=str,choices=['aug','user','demo'])
+    parser.add_argument('--split', default='single_perturbed', type=str,choices=['aug','user','demo'])
     parser.add_argument('--vis',  default='False')
     parser.add_argument('--contact_f1', action='store_true')
     parser.add_argument('--pen', action='store_true')
