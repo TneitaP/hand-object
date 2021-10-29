@@ -34,9 +34,9 @@ def get_all_contactpose_samples():
             for object_name in get_object_names(participant_id, intent):                
                 cp = ContactPose(participant_id, intent, object_name, load_mano=False)
                 """ 如果左右手都考虑的话，屏蔽这段代码 """
-                # if cp._valid_hands != [1]:  # If anything else than just the right hand, remove
-                #     #print(object_name)   #delete "hand"、"palm_print"   以及  handoff:bowl、utah_teapot;   use:banana、bowl、camera、ps_controller、water_bottle
-                #     continue              
+                if cp._valid_hands != [1]:  # If anything else than just the right hand, remove
+                    #print(object_name)   #delete "hand"、"palm_print"   以及  handoff:bowl、utah_teapot;   use:banana、bowl、camera、ps_controller、water_bottle
+                    continue              
                 samples.append((participant_id, intent, object_name, cp))
 
     print('Valid ContactPose samples:', len(samples))

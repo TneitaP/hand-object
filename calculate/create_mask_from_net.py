@@ -29,9 +29,9 @@ def get_all_contactpose(args):
             for object_name in get_object_names(participant_id, intent):                
                 cp = ContactPose(participant_id, intent, object_name)
                 """ 如果左右手都考虑的话，屏蔽这段代码 """
-                if cp._valid_hands != [1]:  # If anything else than just the right hand, remove
-                    #print(object_name)   #delete "hands"、"palm_print"   以及  handoff:bowl、utah_teapot;   use:banana、bowl、camera、ps_controller、water_bottle
-                    continue              
+                # if cp._valid_hands != [1]:  # If anything else than just the right hand, remove
+                #     #print(object_name)   #delete "hands"、"palm_print"   以及  handoff:bowl、utah_teapot;   use:banana、bowl、camera、ps_controller、water_bottle
+                #     continue              
                 samples.append((participant_id, intent, object_name, cp))
 
     print('Valid ContactPose samples:', len(samples))
@@ -122,7 +122,7 @@ if __name__=="__main__":
     parser.add_argument('--p_num', default=2, help='Number of folders, which the max value is 50')
     parser.add_argument('--intent',  default=["handoff","use"],type=str, choices=["use","handoff","use,handoff"])
     parser.add_argument('--object_name',default="banana", choices=["apple","banana","bowl"])
-    parser.add_argument('--split',default='aug_train', type=str,choices=['demo','aug','fine','im'])
+    parser.add_argument('--split',default='double_perturbed', type=str,choices=['demo','aug','fine','im'])
     parser.add_argument('--saveobj', action='store_true')
     parser.add_argument('--partial', default=-1, type=int, help='Only run for n samples')
     args = parser.parse_args()
@@ -142,9 +142,10 @@ if __name__=="__main__":
             runs = pickle.load(open(in_file, 'rb'))
             print('Loaded {} len {}'.format(in_file, len(runs)))
             renderers = run_mask(camera_name,runs[idx]['out_ho'])
+            #renderers = create_renderers(samples[idx][2],camera_name)
             for frame_idx, image_name in enumerate(tqdm(next(os.walk(image_root))[2])):
                 oriImage_path = os.path.join(image_root,image_name)
                 color_im = cv2.imread(oriImage_path)
                 mask_path = oriImage_path.replace("images","mask_perturbed")
-                show_rendering_output(renderers, color_im, camera_name, frame_idx, mask_path, crop_size, write=True,vis=False)
+                show_rendering_output(renderers, color_im, camera_name, frame_idx, mask_path, crop_size, write=False,vis=False)
 

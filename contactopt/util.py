@@ -4,6 +4,7 @@
 
 import os
 from os import path as osp
+import cv2
 import numpy as np
 import json
 import matplotlib.pyplot as plt
@@ -53,14 +54,6 @@ def forward_mano(mano_model, pose, beta, tforms):
 
     verts, joints = mano_model(pose, beta)
     
-    all_data = list()
-    all_data.append({
-        'gt_verts': verts, 
-        'gt_joints': joints
-        })
-    out_file = './data/model_out.pkl'
-    f =  open(out_file, 'wb')
-    pickle.dump(all_data,f)
     verts_homo = torch.cat((verts / 1000, torch.ones(batch_size, verts.shape[1], 1, device=device)), 2)
     joints_homo = torch.cat((joints / 1000, torch.ones(batch_size, joints.shape[1], 1, device=device)), 2)
 
@@ -371,6 +364,67 @@ def vis_pointcloud(object_points, hand_points, idx=None, show=True):
 
     return fig
 
+def vis_Joints3D(points, vis=False):
+    x = []
+    y = []
+    z = []
+    edges = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [0, 9], [9, 10], \
+             [10, 11], [11, 12], [0, 13], [13, 14], [14, 15], [15, 16], [0, 17], [17, 18], [18, 19], [19, 20]]
+    color = ['g', 'b', 'r', 'y', 'm', 'k']
+
+    ax = plt.subplot(projection='3d')  # 创建一个三维的绘图工程
+    plt.title("3D joints")
+    ax.set_xlabel('X')  # 设置x坐标轴
+    ax.set_ylabel('Y')  # 设置y坐标轴
+    ax.set_zlabel('Z')  # 设置z坐标轴
+    c = 0
+    for i in range(0, 20):
+        x = [points[edges[i][0], 0], points[edges[i][1], 0]]
+        y = [points[edges[i][0], 1], points[edges[i][1], 1]]
+        z = [points[edges[i][0], 2], points[edges[i][1], 2]]
+        if ((i) % 4 == 0) | (i == 0):
+            hand_color = color[c]
+            c += 1
+        ax.plot(x, y, z, c=hand_color)
+
+    if vis:
+        plt.show()
+
+def vis_2d_keypoints(img, kps, kps_line,  kp_thre=0.4, alpha=0.7):
+    # Convert form plt 0-1 RGBA colors to 0-255 BGR colors for opencv.
+    cmap = plt.get_cmap('rainbow')
+    colors = [cmap(i) for i in np.linspace(0, 1, len(kps_line))]
+    colors = [(c[2] * 255, c[1] * 255, c[0] * 255) for c in colors]
+
+    # Perfrom the drawing on a copy of the image, to allow for blending
+    kp_mask = np.copy(img)
+
+    # Draw the keypoints
+    for l in range(len(kps_line)):
+        i1 = kps_line[l][0]
+        i2 = kps_line[l][1]
+        p1 = kps[0, i1].astype(np.int32), kps[1, i1].astype(np.int32)
+        p2 = kps[0, i2].astype(np.int32), kps[1, i2].astype(np.int32)
+
+        cv2.line(kp_mask,p1,p2, color=colors[l], thickness=2)
+        cv2.circle(kp_mask,p1,radius=3, color=colors[l], thickness=-1)
+        cv2.circle(kp_mask, p2, radius=3, color=colors[l], thickness=-1)
+
+    return cv2.addWeighted(img, 1.0 - alpha, kp_mask, alpha, 0)
+
+
+def vis_2d_pose(pred, img):   
+    kps_line = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [0, 9], [9, 10], \
+             [10, 11], [11, 12], [0, 13], [13, 14], [14, 15], [15, 16], [0, 17], [17, 18], [18, 19], [19, 20]]
+    img = cv2.imread(img)
+
+    tmpimg = img.copy().astype(np.uint8)
+    tmpkps = np.zeros((3, len(pred)))
+    tmpkps[0, :], tmpkps[1, :] = pred[:, 0], pred[:, 1]
+    tmpimg = vis_2d_keypoints(tmpimg, tmpkps, kps_line)
+
+    cv2.imshow('vis2dpose', tmpimg)
+    cv2.waitKey(0)
 
 def get_mano_closed_faces():
     """The default MANO mesh is "open" at the wrist. By adding additional faces, the hand mesh is closed,
@@ -406,9 +460,6 @@ def get_mano_closed_faces():
 
     return closed_faces.detach().cpu().numpy() #, hand_ignore_faces
 
-
-# def text_3d(text, pos, direction=None, degree=-90.0, density=10, font='/usr/share/fonts/truetype/freefont/FreeMono.ttf',
-#             font_size=10):
 
 def text_3d(text, pos, direction=None, degree=-90.0, density=10,
             font='H:/PyCharm Community Edition 2021.2/jbr/lib/fonts/DroidSansMono.ttf',
