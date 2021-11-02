@@ -2,7 +2,8 @@ data/
 mano/models/
 .vscode/
 contactopt/__pycache__
-loader/ContactPose/__pycache__
-mano/__pycache__
-mano/webuser/__pycache__
-__pycache__
+loader/ContactPose/__pycache__/
+mano/__pycache__/
+mano/webuser/__pycache__/
+__pycache__/
+contactopt/__pycache__/

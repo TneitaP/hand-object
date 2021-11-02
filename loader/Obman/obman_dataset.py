@@ -118,7 +118,9 @@ class ObMan():
             hand_sides = []
             hand_poses = []
             hand_pcas = []
+            hand_shapes = []
             hand_verts3d = []
+            hand_mTc = []
             obj_paths = []
             obj_transforms = []
             meta_infos = []
@@ -136,6 +138,8 @@ class ObMan():
                     hand_sides.append(meta_info['side'])
                     hand_poses.append(meta_info['hand_pose'])
                     hand_pcas.append(meta_info['pca_pose'])
+                    hand_shapes.append(meta_info['shape'])
+                    hand_mTc.append(meta_info['affine_transform'])
                     depth_infos.append({
                         'depth_min':
                         meta_info['depth_min'],
@@ -178,7 +182,9 @@ class ObMan():
                 'hand_sides': hand_sides,
                 'hand_poses': hand_poses,
                 'hand_pcas': hand_pcas,
+                'hand_shapes': hand_shapes,
                 'hand_verts3d': hand_verts3d,
+                'hand_mTc':hand_mTc,
                 'obj_paths': obj_paths,
                 'obj_transforms': obj_transforms,
                 'meta_infos': meta_infos
@@ -211,6 +217,8 @@ class ObMan():
         joints2d = [annotations['joints2d'][idx] for idx in selected_idxs]
         hand_sides = [annotations['hand_sides'][idx] for idx in selected_idxs]
         hand_pcas = [annotations['hand_pcas'][idx] for idx in selected_idxs]
+        hand_shapes = [annotations['hand_shapes'][idx] for idx in selected_idxs]
+        hand_mTc = [annotations['hand_mTc'][idx] for idx in selected_idxs]
         hand_verts3d = [
             annotations['hand_verts3d'][idx] for idx in selected_idxs
         ]
@@ -241,7 +249,9 @@ class ObMan():
         self.joints3d = joints3d
         self.hand_sides = hand_sides
         self.hand_pcas = hand_pcas
+        self.hand_shapes = hand_shapes
         self.hand_verts3d = hand_verts3d
+        self.hand_mTc = hand_mTc
         self.obj_paths = obj_paths
         self.obj_transforms = obj_transforms
         self.meta_infos = meta_infos
@@ -312,6 +322,15 @@ class ObMan():
 
     def get_joints2d(self, idx):
         return self.joints2d[idx].astype(np.float32)
+
+    def get_pca(self,idx):
+        return self.hand_pcas[idx].astype(np.float32)
+
+    def get_shape(self,idx):
+        return self.hand_shapes[idx].astype(np.float32)
+    
+    def get_mTc(self,idx):
+        return self.hand_mTc[idx]
 
     def get_joints3d(self, idx):
         joints3d = self.joints3d[idx]
