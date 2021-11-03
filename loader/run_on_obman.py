@@ -3,12 +3,14 @@ from pytorch3d.structures import Meshes
 import torch
 import numpy as np
 from tqdm import tqdm
+import pickle
 from load_obman import load_obman
 from contactopt import util
 from contactopt.run_contactopt import get_newest_checkpoint
 from contactopt.optimize_pose import optimize_pose
 from contactopt.hand_object import HandObject
 from contactopt.arguments import run_contactopt_on_obman_parse_args
+from sklearn.decomposition import PCA
 
 def generate_pointnet_features(necessary_param, obj_sampled_idx):
     """Calculates per-point features for pointnet. DeepContact uses these features"""
@@ -50,8 +52,6 @@ def generate_pointnet_features(necessary_param, obj_sampled_idx):
     obj_dist_to_joint = np.linalg.norm(obj_dist_to_joint, 2, 2)
     obj_dot_to_centroid = np.expand_dims(np.sum((obj_sampled_verts - hand_centroid) * obj_sampled_normals, axis=1), axis=1)
 
-    # hand_feats = np.concatenate((hand_one_hot, hand_normals, hand_vec_to_closest, hand_dist_to_closest, hand_dist_along_normal, hand_dist_to_joint), axis=1)
-    # obj_feats = np.concatenate((obj_one_hot, obj_sampled_normals, obj_vec_to_closest, obj_dist_to_closest, obj_dist_along_normal, obj_dist_to_joint), axis=1)
     hand_feats = np.concatenate((hand_one_hot, hand_dot_to_centroid, hand_dist_to_closest, hand_dist_along_normal, hand_dist_to_joint), axis=1)
     obj_feats = np.concatenate((obj_one_hot, obj_dot_to_centroid, obj_dist_to_closest, obj_dist_along_normal, obj_dist_to_joint), axis=1)
 
@@ -64,7 +64,7 @@ def prepare_param(pose_dataset,img_idx):
     hand_verts3d = pose_dataset.get_verts3d(img_idx)
     hand_joints3d = pose_dataset.get_joints3d(img_idx)
     hand_faces = pose_dataset.get_faces3d(img_idx)
-    hand_poses = pose_dataset.get_pca(img_idx)
+    hand_poses = pose_dataset.get_pca(img_idx)[:18]
     hand_shapes = pose_dataset.get_shape(img_idx)
     hand_mTc = pose_dataset.get_mTc(img_idx)
     obj_verts3d, obj_faces = pose_dataset.get_obj_verts_faces(img_idx)
@@ -87,7 +87,7 @@ def prepare_param(pose_dataset,img_idx):
     data_gpu['hand_mTc_aug'] = torch.from_numpy(hand_mTc).unsqueeze(0).cuda()
 
     data_gpu['obj_normals_aug'] = pytorch3d.structures.utils.list_to_padded([torch.Tensor(obj_normals_aug).cuda()], pad_value=-1)
-    data_gpu['mesh_aug'] = Meshes(verts=[torch.Tensor(obj_verts3d)], faces=[torch.Tensor(obj_faces)])
+    data_gpu['mesh_aug'] = Meshes(verts=[torch.Tensor(obj_verts3d).cuda()], faces=[torch.Tensor(obj_faces).cuda()])
 
     return data_gpu
 
@@ -98,7 +98,8 @@ def run_opt_on_obman(args):
     model = get_newest_checkpoint()   #get pre-defined model weight ,and model is DeepContactNet
     model.to(device)
     model.eval()
-    
+    all_data = list()
+
     for i in tqdm(range(0, args.img_nb, args.img_step)):
         batch_size = 1
 
@@ -164,31 +165,24 @@ def run_opt_on_obman(args):
             out_pose, out_mTc, obj_rot, opt_state = result
 
     #将物体mesh的顶点数量，由固定的2048变为原来数量
-    #     obj_contact_upscale = util.upscale_contact(data_gpu['mesh_aug'], data_gpu['obj_sampled_idx'], obj_contact_target)
+        obj_contact_upscale = util.upscale_contact(data_gpu['mesh_aug'], data_gpu['obj_sampled_idx'], obj_contact_target)
 
-    #     for b in range(obj_contact_upscale.shape[0]):    # Loop over batch
-    #         gt_ho = HandObject()
-    #         in_ho = HandObject()
-    #         out_ho = HandObject()
-    #         gt_ho.load_from_batch(data['hand_beta_gt'], data['hand_pose_gt'], data['hand_mTc_gt'], data['hand_contact_gt'], data['obj_contact_gt'], data['mesh_gt'], b)
-    #         in_ho.load_from_batch(data['hand_beta_aug'], data['hand_pose_aug'], data['hand_mTc_aug'], hand_contact_target, obj_contact_upscale, data['mesh_aug'], b)
-    #         out_ho.load_from_batch(data['hand_beta_aug'], out_pose, out_mTc, data['hand_contact_gt'], data['obj_contact_gt'], data['mesh_aug'], b, obj_rot=obj_rot)
-    #         # out_ho.calc_dist_contact(hand=True, obj=True)
+        for b in range(obj_contact_upscale.shape[0]):    # Loop over batch
+            gt_ho = HandObject()
+            in_ho = HandObject()
+            out_ho = HandObject()
+            gt_ho.load_from_batch(data_gpu['hand_beta_gt'], data_gpu['hand_pose_gt'], data_gpu['hand_mTc_gt'], data_gpu['hand_contact_gt'], data_gpu['obj_contact_gt'], data_gpu['mesh_gt'], b)
+            in_ho.load_from_batch(data_gpu['hand_beta_aug'], data_gpu['hand_pose_aug'], data_gpu['hand_mTc_aug'], hand_contact_target, obj_contact_upscale, data_gpu['mesh_aug'], b)
+            out_ho.load_from_batch(data_gpu['hand_beta_aug'], out_pose, out_mTc, data_gpu['hand_contact_gt'], data_gpu['obj_contact_gt'], data_gpu['mesh_aug'], b, obj_rot=obj_rot)
+            # out_ho.calc_dist_contact(hand=True, obj=True)
             
-    #         all_data.append({'gt_ho': gt_ho, 'in_ho': in_ho, 'out_ho': out_ho})
+            all_data.append({'gt_ho': gt_ho, 'in_ho': in_ho, 'out_ho': out_ho})
 
-    #     if args.vis:
-    #         show_optimization(data, opt_state, hand_contact_target.detach().cpu().numpy(), obj_contact_upscale.detach().cpu().numpy(),
-    #                           is_video=args.video, vis_method=args.vis_method)
-
-    #     if idx >= args.partial > 0:   # Speed up for eval
-    #         break
-
-    # out_file = './data/optimized_{}.pkl'.format(args.split)
-    # print('Saving to {}. Len {}'.format(out_file, len(all_data)))
-    # f =  open(out_file, 'wb')
-    # pickle.dump(all_data,f)
-    # f.close()
+    out_file = './data/optimized_{}.pkl'.format(args.split)
+    print('Saving to {}. Len {}'.format(out_file, len(all_data)))
+    f =  open(out_file, 'wb')
+    pickle.dump(all_data,f)
+    f.close()
 
 
 if __name__ == "__main__":

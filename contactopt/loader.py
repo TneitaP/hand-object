@@ -102,7 +102,7 @@ class ContactDBDataset(Dataset):
 if __name__ == '__main__':
     # Test the speed of the dataloader by going through the entire perturbed-contactpose train set
     dataset = ContactDBDataset('data/perturbed_contactpose_train.pkl')
-    dataloader = DataLoader(dataset, batch_size=1, num_workers=6, collate_fn=ContactDBDataset.collate_fn)
+    dataloader = DataLoader(dataset, batch_size=16, num_workers=6, collate_fn=ContactDBDataset.collate_fn)
 
     start_time = time.time()
     print('start', len(dataloader))
