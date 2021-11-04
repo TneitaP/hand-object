@@ -313,6 +313,15 @@ def mesh_set_color(color, mesh, colormap=plt.cm.inferno):
     colors = o3du.Vector3dVector(colors)
     mesh.vertex_colors = colors
 
+def save_obj(v, file_name='output.obj'):
+    dd = pickle.load(open("mano/models/MANO_RIGHT.pkl", 'rb'), encoding='latin1')
+    f = np.array(dd['f'])
+    obj_file = open(file_name, 'w')
+    for i in range(len(v)):
+        obj_file.write('v ' + str(v[i][0]) + ' ' + str(v[i][1]) + ' ' + str(v[i][2]) + '\n')
+    for i in range(len(f)):
+        obj_file.write('f ' + str(f[i][0]+1) + '/' + str(f[i][0]+1) + ' ' + str(f[i][1]+1) + '/' + str(f[i][1]+1) + ' ' + str(f[i][2]+1) + '/' + str(f[i][2]+1) + '\n')
+    obj_file.close()
 
 def aggregate_tforms(tforms):
     """Aggregates a list of 4x4 rigid transformation matricies"""

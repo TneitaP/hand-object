@@ -20,7 +20,7 @@ def argparse_set():
         choices=['all', 'obj', 'hand'],
         help='Mode for synthgrasp dataset')
     parser.add_argument(
-        '--img_idx', type=int, default='1', help='Idx of first image to display')
+        '--img_idx', type=int, default='0', help='Idx of first image to display')
     parser.add_argument(
         '--img_nb', type=int, default='10', help='Number of images to display')
     parser.add_argument(

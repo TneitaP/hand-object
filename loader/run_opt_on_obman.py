@@ -81,22 +81,29 @@ def prepare_param(pose_dataset,img_idx):
     data_gpu_gt = dict()
     data_gpu = dict()
 
+    img = pose_dataset.get_image(img_idx)
     hand_verts3d = pose_dataset.get_verts3d(img_idx)
     hand_joints3d = pose_dataset.get_joints3d(img_idx)
-    #hand_faces = pose_dataset.get_faces3d(img_idx)
-    hand_poses = pose_dataset.get_pca(img_idx)[:18]
+    anno_poses = pose_dataset.get_pca(img_idx)
+    hand_poses = anno_poses[:18]
     hand_shapes = pose_dataset.get_shape(img_idx)
     hand_mTc = pose_dataset.get_mTc(img_idx)
     obj_verts3d, obj_faces = pose_dataset.get_obj_verts_faces(img_idx)
     
-    # hand_gt
-    data_gpu_gt['hand_verts_gt'] = torch.from_numpy(hand_verts3d).unsqueeze(0).cuda().float()
-    data_gpu_gt['hand_joints3d_gt'] = torch.from_numpy(hand_joints3d).unsqueeze(0).cuda().float()
+    """hand_gt"""
+    #根据pose的前18维，重新生成had_vert和hand_joints
+    hand_verts_gt,hand_joints3d_gt = run_mano_on_obman(hand_poses, hand_shapes , hand_mTc)
+    data_gpu_gt['oriImage'] = img
+    data_gpu_gt['anno_verts'] = hand_verts3d
+    data_gpu_gt['anno_joints'] = hand_joints3d
+    data_gpu_gt['anno_poses'] = anno_poses
+    data_gpu_gt['hand_verts_gt'] = torch.from_numpy(hand_verts_gt).unsqueeze(0).cuda().float()
+    data_gpu_gt['hand_joints3d_gt'] = torch.from_numpy(hand_joints3d_gt).unsqueeze(0).cuda().float()
     data_gpu_gt['hand_pose_gt'] = torch.from_numpy(hand_poses).unsqueeze(0).cuda()
     data_gpu_gt['hand_beta_gt'] = torch.from_numpy(hand_shapes).unsqueeze(0).cuda()
     data_gpu_gt['hand_mTc_gt'] = torch.from_numpy(hand_mTc).unsqueeze(0).cuda()
 
-    #hand_aug
+    """hand_aug"""
     aug_trans = 0.05
     aug_rot = 0.1
     aug_pca = 0.5
@@ -191,8 +198,8 @@ def run_opt_on_obman(args):
                 data_gpu['hand_mTc_aug'] = mtc_orig.detach().clone()
                 random_rot_mat = pytorch3d.transforms.euler_angles_to_matrix(torch.randn((batch_size, 3), device=device) * args.rand_re_rot / 180 * np.pi, 'ZYX')
                 # Convert rotations given as Euler angles in radians to rotation matrices.
-                #data_gpu['hand_mTc_aug'][:, :3, :3] = torch.bmm(random_rot_mat, data_gpu['hand_mTc_aug'][:, :3, :3])#矩阵乘法
-                #data_gpu['hand_mTc_aug'][:, :3, 3] += torch.randn((batch_size, 3), device=device) * args.rand_re_trans
+                data_gpu['hand_mTc_aug'][:, :3, :3] = torch.bmm(random_rot_mat, data_gpu['hand_mTc_aug'][:, :3, :3])#矩阵乘法
+                data_gpu['hand_mTc_aug'][:, :3, 3] += torch.randn((batch_size, 3), device=device) * args.rand_re_trans
 
                 #姿势优化
                 cur_result = optimize_pose(data_gpu, hand_contact_target, obj_contact_target, n_iter=args.n_iter, lr=args.lr,
