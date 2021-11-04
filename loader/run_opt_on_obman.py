@@ -102,10 +102,17 @@ def prepare_param(pose_dataset,img_idx):
     aug_pca = 0.5
     aug_t = np.random.randn(3) * aug_trans
     aug_p = np.concatenate((np.random.randn(3) * aug_rot, np.random.randn(15) * aug_pca)).astype(np.float32)
-    hand_pose_aug = np.array(hand_poses) + aug_p
+
+    #perturbed pose
+    tmp_hand_pose = np.array(hand_poses)
+    #tmp_hand_pose += aug_p
+    hand_pose_aug = tmp_hand_pose
+
+    #perturbed mTc
     tmp_hand_mTc = np.array(hand_mTc)
-    tmp_hand_mTc[:3,3] += aug_t
+    #tmp_hand_mTc[:3,3] += aug_t
     hand_mTc_aug = tmp_hand_mTc
+
     hand_beta_aug = np.array(hand_shapes)   #beta 参数始终保持不变
     hand_verts_aug,hand_joints_aug = run_mano_on_obman(hand_pose_aug,hand_beta_aug,hand_mTc_aug)
 
@@ -184,8 +191,8 @@ def run_opt_on_obman(args):
                 data_gpu['hand_mTc_aug'] = mtc_orig.detach().clone()
                 random_rot_mat = pytorch3d.transforms.euler_angles_to_matrix(torch.randn((batch_size, 3), device=device) * args.rand_re_rot / 180 * np.pi, 'ZYX')
                 # Convert rotations given as Euler angles in radians to rotation matrices.
-                data_gpu['hand_mTc_aug'][:, :3, :3] = torch.bmm(random_rot_mat, data_gpu['hand_mTc_aug'][:, :3, :3])#矩阵乘法
-                data_gpu['hand_mTc_aug'][:, :3, 3] += torch.randn((batch_size, 3), device=device) * args.rand_re_trans
+                #data_gpu['hand_mTc_aug'][:, :3, :3] = torch.bmm(random_rot_mat, data_gpu['hand_mTc_aug'][:, :3, :3])#矩阵乘法
+                #data_gpu['hand_mTc_aug'][:, :3, 3] += torch.randn((batch_size, 3), device=device) * args.rand_re_trans
 
                 #姿势优化
                 cur_result = optimize_pose(data_gpu, hand_contact_target, obj_contact_target, n_iter=args.n_iter, lr=args.lr,
