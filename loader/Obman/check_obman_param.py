@@ -13,7 +13,7 @@ import pyrender
 import pickle
 from tqdm import tqdm
 from manopth.manolayer import ManoLayer
-from contactopt.util import create_verts, forward_mano, save_obj
+from contactopt.util import save_obj
 
 MANO_PKL_DIR = './mano/models/'
 
