@@ -61,7 +61,7 @@ def run_mano_on_obman(aug_hand_pose,aug_hand_beta,aug_hand_mTc):
         Handles numpy-pytorch-numpy conversion"""
     if aug_hand_pose.shape[0] == 48:   # Special case when we're loading GT honnotate
         #mano_model = ManoLayer(mano_root='./mano/models', joint_rot_mode="axisang", use_pca=True, center_idx=None, flat_hand_mean=True)
-        mano_model = ManoLayer(mano_root='./mano/models', joint_rot_mode="axisang",use_pca=False, ncomps=45, side='right', flat_hand_mean=True)
+        mano_model = ManoLayer(mano_root='./mano/models', joint_rot_mode="axisang",use_pca=True, ncomps=45, side='right', flat_hand_mean=True)
     else:   # Everything else
         mano_model = ManoLayer(mano_root='./mano/models', use_pca=True, ncomps=15, side='right', flat_hand_mean=False)
 
@@ -251,7 +251,7 @@ if __name__ == "__main__":
                 'w_opt_rot': 1.0,
                 'w_opt_pose': 1.0,
                 'caps_rad': 0.001,
-                'cont_method': 0,
+                'cont_method': 5,   #original value 0
                 'caps_top': 0.0005,
                 'caps_bot': -0.001,
                 'w_pen_cost': 600,
