@@ -98,7 +98,7 @@ def optimize_obman_pose(mano_model, data, hand_contact_target, obj_contact_targe
     tform_full_out = util.aggregate_tforms([data['hand_mTc_aug'], tform_out])
     return mano_pose_out, tform_full_out, obj_rot_mat, opt_state
 
-def optimize_pose(data, hand_contact_target, obj_contact_target, n_iter=250, lr=0.01, w_cont_hand=2, w_cont_obj=1,
+def optimize_pose(mano_model,data, hand_contact_target, obj_contact_target, n_iter=250, lr=0.01, w_cont_hand=2, w_cont_obj=1,
                   save_history=False, ncomps=15, w_cont_asym=2, w_opt_trans=0.3, w_opt_pose=1, w_opt_rot=1,
                   caps_top=0.0005, caps_bot=-0.001, caps_rad=0.001, caps_on_hand=False,
                   contact_norm_method=0, w_pen_cost=600, w_obj_rot=0, pen_it=0):
@@ -110,7 +110,7 @@ def optimize_pose(data, hand_contact_target, obj_contact_target, n_iter=250, lr=
     opt_vector = torch.zeros((batch_size, ncomps + 6 + 3), device=device)   # 3 hand rot, 3 hand trans, 3 obj rot
     opt_vector.requires_grad = True
 
-    mano_model = ManoLayer(mano_root='./mano/models', use_pca=True, ncomps=ncomps, side='right', flat_hand_mean=False).to(device)
+    #mano_model = ManoLayer(mano_root='./mano/models', use_pca=True, ncomps=ncomps, side='right', flat_hand_mean=False).to(device)
 
     if data['obj_sampled_idx'].numel() > 1:
         obj_normals_sampled = util.batched_index_select(data['obj_normals_aug'], 1, data['obj_sampled_idx'])
@@ -127,7 +127,10 @@ def optimize_pose(data, hand_contact_target, obj_contact_target, n_iter=250, lr=
         optimizer.zero_grad()
 
         mano_pose_out = torch.cat([opt_vector[:, 0:3] * w_opt_rot, opt_vector[:, 3:ncomps+3] * w_opt_pose], dim=1)
-        mano_pose_out[:, :18] += data['hand_pose_aug']
+        try:           
+            mano_pose_out[:, :18] += data['hand_pose_aug']
+        except RuntimeError:
+            mano_pose_out[:, :48] += data['hand_pose_aug']
         tform_out = util.translation_to_tform(opt_vector[:, ncomps+3:ncomps+6] * w_opt_trans)
 
         hand_verts, hand_joints = util.forward_mano(mano_model, mano_pose_out, data['hand_beta_aug'], [data['hand_mTc_aug'], tform_out])   # 2.2ms

@@ -7,7 +7,7 @@ import pickle
 from load_obman import load_obman
 from contactopt import util
 from contactopt.run_contactopt import get_newest_checkpoint
-from contactopt.optimize_pose import optimize_obman_pose
+from contactopt.optimize_pose import optimize_obman_pose, optimize_pose
 from contactopt.arguments import run_contactopt_on_obman_parse_args
 from manopth.manolayer import ManoLayer
 
@@ -165,6 +165,34 @@ def load_from_batch(hand_beta, hand_pose, hand_mTc, obj_mesh):
 
     return data_gpu_out
 
+
+def trans_pkl_from_contactpose(samples):
+    data_gpu_gt = dict()
+    data_gpu = dict()
+
+    """data_gpu_gt"""
+    data_gpu_gt['hand_verts_gt'] = torch.from_numpy(samples['ho_gt'].hand_verts).unsqueeze(0).cuda().float()
+    data_gpu_gt['hand_joints3d_gt'] = torch.from_numpy(samples['ho_gt'].hand_joints).unsqueeze(0).cuda().float()
+    data_gpu_gt['hand_pose_gt'] = torch.from_numpy(samples['ho_gt'].hand_pose).unsqueeze(0).cuda()
+    data_gpu_gt['hand_beta_gt'] = torch.from_numpy(samples['ho_gt'].hand_beta).unsqueeze(0).cuda()
+    data_gpu_gt['hand_mTc_gt'] = torch.from_numpy(samples['ho_gt'].hand_mTc).unsqueeze(0).cuda()
+
+    """ data_gpu """
+    data_gpu['hand_verts_aug'] = torch.from_numpy(samples['ho_aug'].hand_verts).unsqueeze(0).cuda().float()    #
+    data_gpu['hand_joints3d_aug'] = torch.from_numpy(samples['ho_aug'].hand_joints).unsqueeze(0).cuda().float()
+    data_gpu['hand_pose_aug'] = torch.from_numpy(samples['ho_aug'].hand_pose).unsqueeze(0).cuda().float()  #
+    data_gpu['hand_beta_aug'] = torch.from_numpy(samples['ho_aug'].hand_beta).unsqueeze(0).cuda().float()   #
+    data_gpu['hand_mTc_aug'] = torch.from_numpy(samples['ho_aug'].hand_mTc).unsqueeze(0).cuda().float()
+    data_gpu['hand_feats_aug'] = torch.from_numpy(samples['hand_feats_aug']).unsqueeze(0).cuda().float()
+    data_gpu['obj_feats_aug'] = torch.from_numpy(samples['obj_feats_aug']).unsqueeze(0).cuda().float()
+    data_gpu ['obj_sampled_idx'] =  torch.from_numpy(samples['obj_sampled_idx']).unsqueeze(0).cuda().long()
+
+    data_gpu['mesh_aug'] =  Meshes(verts=[torch.Tensor(samples['ho_aug'].obj_verts).cuda()], faces=[torch.Tensor(samples['ho_aug'].obj_faces).cuda()])
+    data_gpu['obj_normals_aug'] = pytorch3d.structures.utils.list_to_padded([torch.Tensor(samples['ho_aug'].obj_normals).cuda()], pad_value=-1)
+    data_gpu['obj_sampled_verts_aug'] =  torch.Tensor(samples['ho_aug'].obj_verts)[torch.Tensor(samples['obj_sampled_idx']).long(), :].unsqueeze(0).cuda().float()
+
+    return data_gpu_gt , data_gpu
+
 def run_opt_on_obman(args):
     pose_dataset = load_obman(args)
 
@@ -174,11 +202,16 @@ def run_opt_on_obman(args):
     model.eval()
     all_data = list()
 
+    samples =  pickle.load(open('data/perturbed_contactpose_train.pkl','rb'))
+
     for i in tqdm(range(0, args.img_nb, args.img_step)):
         batch_size = 1
 
         img_idx = args.img_idx + i
+
+# step1:
         data_gpu_gt , data_gpu = prepare_param(pose_dataset,img_idx)
+        #data_gpu_gt ,data_gpu = trans_pkl_from_contactpose(samples[i])
         with torch.no_grad():
             """ Code related to section 3.2, to estimate the contact on hand and on object"""
             network_out = model(data_gpu['hand_verts_aug'], data_gpu['hand_feats_aug'], data_gpu['obj_sampled_verts_aug'], data_gpu['obj_feats_aug'])
@@ -204,7 +237,9 @@ def run_opt_on_obman(args):
                 data_gpu['hand_mTc_aug'][:, :3, 3] += torch.randn((batch_size, 3), device=device) * args.rand_re_trans
                 #util.save_obj(data_gpu['hand_verts_aug'].squeeze(0).detach().cpu().numpy(), 'C:/Users/zbh/Desktop/hand_aug.obj')
                 #姿势优化
-                cur_result = optimize_obman_pose(data_gpu, hand_contact_target, obj_contact_target, n_iter=args.n_iter, lr=args.lr,
+#step 2
+                mano_model = ManoLayer(mano_root='./mano/models', use_pca=True, ncomps=args.ncomps, side='right', flat_hand_mean=False).to(device) #可能是flase
+                cur_result = optimize_pose(mano_model,data_gpu, hand_contact_target, obj_contact_target, n_iter=args.n_iter, lr=args.lr,
                                            w_cont_hand=args.w_cont_hand, w_cont_obj=1, save_history=args.vis, ncomps=args.ncomps,
                                            w_cont_asym=args.w_cont_asym, w_opt_trans=args.w_opt_trans, w_opt_pose=args.w_opt_pose,
                                            w_opt_rot=args.w_opt_rot,
@@ -219,7 +254,7 @@ def run_opt_on_obman(args):
                     opt_state = cur_result[3]
 
                 loss_val = cur_result[3][-1]['loss']  #获得的loss值
-                print("第"+str(re_it)+"次：",loss_val)
+                #print("第"+str(re_it)+"次：",loss_val)
                 for b in range(batch_size):
                     if loss_val[b] < best_loss[b]:
                         best_loss[b] = loss_val[b]
@@ -255,7 +290,7 @@ if __name__ == "__main__":
                 'w_opt_rot': 1.0,
                 'w_opt_pose': 1.0,
                 'caps_rad': 0.001,
-                'cont_method': 5,   #original value 0
+                'cont_method': 0,   #original value 0
                 'caps_top': 0.0005,
                 'caps_bot': -0.001,
                 'w_pen_cost': 600,

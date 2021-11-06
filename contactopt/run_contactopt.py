@@ -2,6 +2,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import sys
+
+from manopth.manolayer import ManoLayer
 sys.path.append("./")
 from contactopt.loader import ContactDBDataset
 from contactopt.deepcontact_net import DeepContactNet
@@ -93,7 +95,8 @@ def run_contactopt(args):
                 data_gpu['hand_mTc_aug'][:, :3, 3] += torch.randn((batch_size, 3), device=device) * args.rand_re_trans
 
                 #姿势优化
-                cur_result = optimize_pose(data_gpu, hand_contact_target, obj_contact_target, n_iter=args.n_iter, lr=args.lr,
+                mano_model = ManoLayer(mano_root='./mano/models', use_pca=True, ncomps=args.ncomps, side='right', flat_hand_mean=False).to(device)
+                cur_result = optimize_pose(mano_model, data_gpu, hand_contact_target, obj_contact_target, n_iter=args.n_iter, lr=args.lr,
                                            w_cont_hand=args.w_cont_hand, w_cont_obj=1, save_history=args.vis, ncomps=args.ncomps,
                                            w_cont_asym=args.w_cont_asym, w_opt_trans=args.w_opt_trans, w_opt_pose=args.w_opt_pose,
                                            w_opt_rot=args.w_opt_rot,

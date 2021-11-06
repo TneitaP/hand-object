@@ -3,8 +3,8 @@ from typing import DefaultDict
 
 from tqdm import tqdm
 
-from Obman.obman_dataset import ObMan
-from Obman.visutils import visualize_2d, visualize_3d
+from loader.Obman.obman_dataset import ObMan
+from loader.Obman.visutils import visualize_2d, visualize_3d
 
 def argparse_set():
 

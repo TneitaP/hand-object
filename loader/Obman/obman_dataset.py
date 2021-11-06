@@ -7,9 +7,9 @@ import numpy as np
 from PIL import Image, ImageFile
 from tqdm import tqdm
 
-from Obman import handutils
-from Obman.loadutils import fast_load_obj
-from Obman.visutils import get_coords_2d
+from loader.Obman import handutils
+from loader.Obman.loadutils import fast_load_obj
+from loader.Obman.visutils import get_coords_2d
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
