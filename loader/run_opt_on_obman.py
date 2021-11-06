@@ -179,10 +179,11 @@ def run_opt_on_obman(args):
 
         img_idx = args.img_idx + i
         data_gpu_gt , data_gpu = prepare_param(pose_dataset,img_idx)
-        
-        network_out = model(data_gpu['hand_verts_aug'], data_gpu['hand_feats_aug'], data_gpu['obj_sampled_verts_aug'], data_gpu['obj_feats_aug'])
-        hand_contact_target = util.class_to_val(network_out['contact_hand']).unsqueeze(2)
-        obj_contact_target = util.class_to_val(network_out['contact_obj']).unsqueeze(2)
+        with torch.no_grad():
+            """ Code related to section 3.2, to estimate the contact on hand and on object"""
+            network_out = model(data_gpu['hand_verts_aug'], data_gpu['hand_feats_aug'], data_gpu['obj_sampled_verts_aug'], data_gpu['obj_feats_aug'])
+            hand_contact_target = util.class_to_val(network_out['contact_hand']).unsqueeze(2)
+            obj_contact_target = util.class_to_val(network_out['contact_obj']).unsqueeze(2)
 
         if args.sharpen_thresh > 0: # If flag, sharpen contact
             print('Sharpening')
@@ -201,7 +202,7 @@ def run_opt_on_obman(args):
                 # Convert rotations given as Euler angles in radians to rotation matrices.
                 data_gpu['hand_mTc_aug'][:, :3, :3] = torch.bmm(random_rot_mat, data_gpu['hand_mTc_aug'][:, :3, :3])#矩阵乘法
                 data_gpu['hand_mTc_aug'][:, :3, 3] += torch.randn((batch_size, 3), device=device) * args.rand_re_trans
-
+                #util.save_obj(data_gpu['hand_verts_aug'].squeeze(0).detach().cpu().numpy(), 'C:/Users/zbh/Desktop/hand_aug.obj')
                 #姿势优化
                 cur_result = optimize_obman_pose(data_gpu, hand_contact_target, obj_contact_target, n_iter=args.n_iter, lr=args.lr,
                                            w_cont_hand=args.w_cont_hand, w_cont_obj=1, save_history=args.vis, ncomps=args.ncomps,
@@ -226,8 +227,11 @@ def run_opt_on_obman(args):
                         out_mTc[b, :, :] = cur_result[1][b, :, :]#【1，4，4】
                         obj_rot[b, :, :] = cur_result[2][b, :, :]#【1，3，3】
 
-                # print('Loss, re', re_it, loss_val)
-                # print('Best loss', best_loss)
+                # out_verts, _ = run_mano_on_obman(
+                #     out_pose.squeeze(0).detach().cpu().numpy() , 
+                #     data_gpu['hand_beta_aug'].squeeze(0).detach().cpu().numpy() ,                     
+                #     out_mTc.squeeze(0).detach().cpu().numpy())
+                # #util.save_obj(out_verts, 'C:/Users/zbh/Desktop/after_hand_aug.obj')
         data_gpu_out = load_from_batch(data_gpu['hand_beta_aug'], out_pose, out_mTc, data_gpu['mesh_aug'])
         all_data.append({'gt_ho': data_gpu_gt, 'in_ho': data_gpu, 'out_ho': data_gpu_out})
 

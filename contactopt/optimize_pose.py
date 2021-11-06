@@ -64,6 +64,7 @@ def optimize_obman_pose(data, hand_contact_target, obj_contact_target, n_iter=25
             obj_verts = util.apply_rot(obj_rot_mat, obj_verts, around_centroid=True)
             obj_normals = util.apply_rot(obj_rot_mat, obj_normals)
 
+        
         contact_obj, contact_hand = calculate_contact.calculate_contact_capsule(hand_verts, hand_normals, obj_verts, obj_normals,
                               caps_top=caps_top, caps_bot=caps_bot, caps_rad=caps_rad, caps_on_hand=caps_on_hand, contact_norm_method=contact_norm_method)
 
