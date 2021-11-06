@@ -141,7 +141,8 @@ class HandObject:
 
         self.run_mano()
         # self.calc_dist_contact(hand=True, obj=False)  # DONT calculate hand contact, since it's not ground truth
-
+        return self.hand_verts, self.hand_joints
+        
     def load_from_mano_params(self, hand_beta, hand_pose, hand_trans, obj_faces, obj_verts):
         """Load from mano parameters and object mesh"""
         self.hand_beta = np.array(hand_beta)
