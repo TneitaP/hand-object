@@ -13,7 +13,7 @@ import contactopt.util as util
 from contactopt.hand_object import HandObject
 from contactopt.visualize import show_optimization
 
-def optimize_obman_pose(data, hand_contact_target, obj_contact_target, n_iter=250, lr=0.01, w_cont_hand=2, w_cont_obj=1,
+def optimize_obman_pose(mano_model, data, hand_contact_target, obj_contact_target, n_iter=250, lr=0.01, w_cont_hand=2, w_cont_obj=1,
                   save_history=False, ncomps=45, w_cont_asym=2, w_opt_trans=0.3, w_opt_pose=1, w_opt_rot=1,
                   caps_top=0.0005, caps_bot=-0.001, caps_rad=0.001, caps_on_hand=False,
                   contact_norm_method=0, w_pen_cost=600, w_obj_rot=0, pen_it=0):
@@ -24,8 +24,6 @@ def optimize_obman_pose(data, hand_contact_target, obj_contact_target, n_iter=25
 
     opt_vector = torch.zeros((batch_size, ncomps + 6 + 3), device=device)   # 3 hand rot, 3 hand trans, 3 obj rot
     opt_vector.requires_grad = True
-
-    mano_model = ManoLayer(mano_root='./mano/models', use_pca=True, ncomps=ncomps, side='right', flat_hand_mean=True).to(device)
 
     if data['obj_sampled_idx'].numel() > 1:
         obj_normals_sampled = util.batched_index_select(data['obj_normals_aug'], 1, data['obj_sampled_idx'])
@@ -42,7 +40,7 @@ def optimize_obman_pose(data, hand_contact_target, obj_contact_target, n_iter=25
         optimizer.zero_grad()
 
         mano_pose_out = torch.cat([opt_vector[:, 0:3] * w_opt_rot, opt_vector[:, 3:ncomps+3] * w_opt_pose], dim=1)
-        mano_pose_out[:, :48] += data['hand_pose_aug']
+        mano_pose_out[:, :18] += data['hand_pose_aug']
         tform_out = util.translation_to_tform(opt_vector[:, ncomps+3:ncomps+6] * w_opt_trans)
 
         hand_verts, hand_joints = util.forward_mano(mano_model, mano_pose_out, data['hand_beta_aug'], [data['hand_mTc_aug'], tform_out])   # 2.2ms
@@ -64,7 +62,8 @@ def optimize_obman_pose(data, hand_contact_target, obj_contact_target, n_iter=25
             obj_verts = util.apply_rot(obj_rot_mat, obj_verts, around_centroid=True)
             obj_normals = util.apply_rot(obj_rot_mat, obj_normals)
 
-        
+
+        """Code related to section 3.2, to estimate the current contact on hand and on object """
         contact_obj, contact_hand = calculate_contact.calculate_contact_capsule(hand_verts, hand_normals, obj_verts, obj_normals,
                               caps_top=caps_top, caps_bot=caps_bot, caps_rad=caps_rad, caps_on_hand=caps_on_hand, contact_norm_method=contact_norm_method)
 
@@ -76,9 +75,11 @@ def optimize_obman_pose(data, hand_contact_target, obj_contact_target, n_iter=25
         contact_hand_weighted = contact_hand_sub + torch.nn.functional.relu(contact_hand_sub) * w_cont_asym  # Loss for 'missing' contact higher
         loss_contact_hand = loss_criterion(contact_hand_weighted, torch.zeros_like(contact_hand_weighted)).mean(dim=(1, 2))
 
+        """loss = Eh + Eo"""
         loss = loss_contact_obj * w_cont_obj + loss_contact_hand * w_cont_hand
 
         if w_pen_cost > 0 and it >= pen_it:
+            """ loss = Eh + Eo + Epen """
             pen_cost = calculate_contact.calculate_penetration_cost(hand_verts, hand_normals, data['obj_sampled_verts_aug'], obj_normals_sampled, is_thin, contact_norm_method)
             loss += pen_cost.mean(dim=1) * w_pen_cost
 
