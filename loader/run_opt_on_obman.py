@@ -143,9 +143,9 @@ def prepare_param(pose_dataset,img_idx):
     data_gpu_gt["obj_faces"] = obj_faces 
 
     """hand_aug"""
-    aug_trans = 0.005
-    aug_rot = 0.01
-    aug_pca = 0.5
+    aug_trans = 0
+    aug_rot = 0
+    aug_pca = 0
     aug_t = np.random.randn(3) * aug_trans
     aug_p = np.concatenate((np.random.randn(3) * aug_rot, np.random.randn(45) * aug_pca)).astype(np.float32)
     #perturbed pose
@@ -269,12 +269,14 @@ def run_opt_on_obman(args):
 
             for re_it in range(args.rand_re):
                 # Add noise to hand translation and rotation
-                # data_gpu['hand_mTc_aug'] = mtc_orig.detach().clone()
-                # random_rot_mat = pytorch3d.transforms.euler_angles_to_matrix(torch.randn((batch_size, 3), device=device) * args.rand_re_rot / 180 * np.pi, 'ZYX')
-                # # Convert rotations given as Euler angles in radians to rotation matrices.
-                # data_gpu['hand_mTc_aug'][:, :3, :3] = torch.bmm(random_rot_mat, data_gpu['hand_mTc_aug'][:, :3, :3])#矩阵乘法
-                # data_gpu['hand_mTc_aug'][:, :3, 3] += torch.randn((batch_size, 3), device=device) * args.rand_re_trans
-                #util.save_obj(data_gpu['hand_verts_aug'].squeeze(0).detach().cpu().numpy(), 'C:/Users/zbh/Desktop/hand_aug.obj')
+                data_gpu['hand_mTc_aug'] = mtc_orig.detach().clone()
+                random_rot_mat = pytorch3d.transforms.euler_angles_to_matrix(torch.randn((batch_size, 3), device=device) * args.rand_re_rot / 180 * np.pi, 'ZYX')
+                # Convert rotations given as Euler angles in radians to rotation matrices.
+                data_gpu['hand_mTc_aug'][:, :3, :3] = torch.bmm(random_rot_mat, data_gpu['hand_mTc_aug'][:, :3, :3])#矩阵乘法
+                data_gpu['hand_mTc_aug'][:, :3, 3] += torch.randn((batch_size, 3), device=device) * args.rand_re_trans
+                util.save_obj(data_gpu_gt['anno_verts'], 'C:/Users/zbh/Desktop/obman_mesh/'+ str(i) +'_hand_anno.obj')
+                util.save_obj(data_gpu_gt['hand_verts_gt'].squeeze(0).detach().cpu().numpy(), 'C:/Users/zbh/Desktop/obman_mesh/'+ str(i) +'_hand_in.obj')
+                util.save_obj(data_gpu['hand_verts_aug'].squeeze(0).detach().cpu().numpy(), 'C:/Users/zbh/Desktop/obman_mesh/'+ str(i) +'_hand_opti.obj')
                 #姿势优化
 #step 2
                 mano_model = ManoLayer(mano_root='./mano/models', use_pca=True, ncomps=args.ncomps, side='right', flat_hand_mean=True).to(device) #可能是flase
