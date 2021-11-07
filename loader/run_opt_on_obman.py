@@ -143,9 +143,9 @@ def prepare_param(pose_dataset,img_idx):
     data_gpu_gt["obj_faces"] = obj_faces 
 
     """hand_aug"""
-    aug_trans = 0
-    aug_rot = 0
-    aug_pca = 0
+    aug_trans = 0.005
+    aug_rot = 0.1
+    aug_pca = 1.3
     aug_t = np.random.randn(3) * aug_trans
     aug_p = np.concatenate((np.random.randn(3) * aug_rot, np.random.randn(45) * aug_pca)).astype(np.float32)
     #perturbed pose
@@ -274,9 +274,9 @@ def run_opt_on_obman(args):
                 # Convert rotations given as Euler angles in radians to rotation matrices.
                 data_gpu['hand_mTc_aug'][:, :3, :3] = torch.bmm(random_rot_mat, data_gpu['hand_mTc_aug'][:, :3, :3])#矩阵乘法
                 data_gpu['hand_mTc_aug'][:, :3, 3] += torch.randn((batch_size, 3), device=device) * args.rand_re_trans
-                util.save_obj(data_gpu_gt['anno_verts'], 'C:/Users/zbh/Desktop/obman_mesh/'+ str(i) +'_hand_anno.obj')
-                util.save_obj(data_gpu_gt['hand_verts_gt'].squeeze(0).detach().cpu().numpy(), 'C:/Users/zbh/Desktop/obman_mesh/'+ str(i) +'_hand_in.obj')
-                util.save_obj(data_gpu['hand_verts_aug'].squeeze(0).detach().cpu().numpy(), 'C:/Users/zbh/Desktop/obman_mesh/'+ str(i) +'_hand_opti.obj')
+                util.save_obj(data_gpu_gt['hand_verts_gt'].squeeze(0).detach().cpu().numpy(), 'C:/Users/zbh/Desktop/obman_mesh/'+ str(i) +'_hand_gt.obj')
+                util.save_obj(data_gpu_gt['obj_verts'], 'C:/Users/zbh/Desktop/obman_mesh/'+ str(i) +'_obj_gt.obj')
+                util.save_obj(data_gpu['hand_verts_aug'].squeeze(0).detach().cpu().numpy(), 'C:/Users/zbh/Desktop/obman_mesh/'+ str(i) +'_hand_in.obj')
                 #姿势优化
 #step 2
                 mano_model = ManoLayer(mano_root='./mano/models', use_pca=True, ncomps=args.ncomps, side='right', flat_hand_mean=True).to(device) #可能是flase
@@ -303,11 +303,20 @@ def run_opt_on_obman(args):
                         out_mTc[b, :, :] = cur_result[1][b, :, :]#【1，4，4】
                         obj_rot[b, :, :] = cur_result[2][b, :, :]#【1，3，3】
 
-                # out_verts, _ = run_mano_on_obman(
-                #     out_pose.squeeze(0).detach().cpu().numpy() , 
-                #     data_gpu['hand_beta_aug'].squeeze(0).detach().cpu().numpy() ,                     
-                #     out_mTc.squeeze(0).detach().cpu().numpy())
-                # #util.save_obj(out_verts, 'C:/Users/zbh/Desktop/after_hand_aug.obj')
+        else:
+            util.save_obj(data_gpu_gt['hand_verts_gt'].squeeze(0).detach().cpu().numpy(), 'C:/Users/zbh/Desktop/obman_mesh/'+ str(i) +'_hand_gt.obj')
+            util.save_obj(data_gpu['hand_verts_aug'].squeeze(0).detach().cpu().numpy(), 'C:/Users/zbh/Desktop/obman_mesh/'+ str(i) +'_hand_in.obj')
+            mano_model = ManoLayer(mano_root='./mano/models', use_pca=True, ncomps=args.ncomps, side='right', flat_hand_mean=True).to(device)
+            result = optimize_pose(mano_model, data_gpu, hand_contact_target, obj_contact_target, n_iter=args.n_iter, lr=args.lr,
+                                    w_cont_hand=args.w_cont_hand, w_cont_obj=1, save_history=args.vis, ncomps=args.ncomps,
+                                    w_cont_asym=args.w_cont_asym, w_opt_trans=args.w_opt_trans, w_opt_pose=args.w_opt_pose,
+                                    w_opt_rot=args.w_opt_rot,
+                                    caps_top=args.caps_top, caps_bot=args.caps_bot, caps_rad=args.caps_rad,
+                                    caps_on_hand=args.caps_hand,
+                                    contact_norm_method=args.cont_method, w_pen_cost=args.w_pen_cost,
+                                    w_obj_rot=args.w_obj_rot, pen_it=args.pen_it)
+            out_pose, out_mTc, obj_rot, opt_state = result
+
         data_gpu_out = load_from_batch(data_gpu['hand_beta_aug'], out_pose, out_mTc, data_gpu['mesh_aug'])
         all_data.append({'gt_ho': data_gpu_gt, 'in_ho': data_gpu, 'out_ho': data_gpu_out})
 
@@ -321,26 +330,50 @@ def run_opt_on_obman(args):
 if __name__ == "__main__":
 
     args = run_contactopt_on_obman_parse_args()
-    defaults = {'lr': 0.01,
-                'n_iter': 250,
-                'w_cont_hand': 2.0,
-                'sharpen_thresh': -1,
-                'ncomps': 45,
-                'w_cont_asym': 2,
-                'w_opt_trans': 0.3,
-                'w_opt_rot': 1.0,
-                'w_opt_pose': 1.0,
-                'caps_rad': 0.001,
-                'cont_method': 0,   #original value 0
-                'caps_top': 0.0005,
-                'caps_bot': -0.001,
-                'w_pen_cost': 600,
-                'pen_it': 0,
-                'rand_re': 8,
-                'rand_re_trans': 0.04,
-                'rand_re_rot': 5,
-                'w_obj_rot': 0,
-                'vis_method': 1}
+    perturbed = True
+    if perturbed:
+        defaults = {'lr': 0.01,
+                    'n_iter': 250,
+                    'w_cont_hand': 2.0,
+                    'sharpen_thresh': -1,
+                    'ncomps': 45,
+                    'w_cont_asym': 2,
+                    'w_opt_trans': 0.3,
+                    'w_opt_rot': 1.0,
+                    'w_opt_pose': 1.0,
+                    'caps_rad': 0.001,
+                    'cont_method': 0,
+                    'caps_top': 0.0005,
+                    'caps_bot': -0.001,
+                    'w_pen_cost': 600,
+                    'pen_it': 0,
+                    'rand_re': 8,
+                    'rand_re_trans': 0.04,
+                    'rand_re_rot': 5,
+                    'w_obj_rot': 0,
+                    'vis_method': 1}
+    else:
+        defaults = {'lr': 0.003,
+                    'n_iter': 250,
+                    'w_cont_hand': 0,
+                    'sharpen_thresh': 0.3,
+                    'ncomps': 45,
+                    'w_cont_asym': 4,
+                    'w_opt_trans': 0.03,
+                    'w_opt_rot': 1.0,
+                    'w_opt_pose': 1.0,
+                    'caps_rad': 0.001,
+                    'cont_method': 5,
+                    'caps_top': 0.0005,
+                    'caps_bot': -0.001,
+                    'w_pen_cost': 600,
+                    'pen_it': 0,
+                    'rand_re': 1,
+                    'rand_re_trans': 0.00,
+                    'rand_re_rot': 0,
+                    'w_obj_rot': 0,
+                    'vis_method': 5}
+
     for k in defaults.keys():   # Override arguments that have not been manually set with defaults
         if vars(args)[k] is None:
             vars(args)[k] = defaults[k]
