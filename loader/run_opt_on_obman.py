@@ -5,13 +5,14 @@ import numpy as np
 from tqdm import tqdm
 import pickle
 from contactopt.diffcontact import calculate_contact_capsule
+from loader.load_contactpose import get_all_contactpose_samples
 from loader.load_obman import load_obman
 from contactopt import util
 from contactopt.run_contactopt import get_newest_checkpoint
 from contactopt.optimize_pose import optimize_obman_pose, optimize_pose
 from contactopt.arguments import run_contactopt_on_obman_parse_args
 from manopth.manolayer import ManoLayer
-
+from open3d import io as o3dio
 def generate_pointnet_features(necessary_param, obj_sampled_idx):
     """Calculates per-point features for pointnet. DeepContact uses these features"""
     obj_mesh = Meshes(verts=[torch.Tensor(necessary_param["obj_verts"])], faces=[torch.Tensor(necessary_param["obj_faces"])])
@@ -100,30 +101,38 @@ def gt_calc_dist_contact( gt_obj_verts, gt_obj_faces, gt_hand_verts, gt_closed_f
 
     return hand_contact , obj_contact
 
-def prepare_param(pose_dataset,img_idx):
+def prepare_param(pose_dataset=None, img_idx=None, samples=None):
     necessary_param = dict()
     data_gpu_gt = dict()
     data_gpu = dict()
 
-    img = pose_dataset.get_image(img_idx)
-    hand_verts3d = pose_dataset.get_verts3d(img_idx)
-    hand_joints3d = pose_dataset.get_joints3d(img_idx)
-    anno_poses = pose_dataset.get_pca(img_idx)
-    hand_poses = np.zeros(48)
-    hand_poses[3:] = anno_poses
-    hand_shapes = pose_dataset.get_shape(img_idx)
-    hand_mTc = pose_dataset.get_mTc(img_idx)
-    obj_verts3d, obj_faces = pose_dataset.get_obj_verts_faces(img_idx)
-    
+    if samples == None:
+        img = pose_dataset.get_image(img_idx)
+        hand_verts3d = pose_dataset.get_verts3d(img_idx)
+        hand_joints3d = pose_dataset.get_joints3d(img_idx)
+        anno_poses = pose_dataset.get_pca(img_idx)
+        hand_poses = np.zeros(48)
+        hand_poses[3:] = anno_poses
+        hand_shapes = pose_dataset.get_shape(img_idx)
+        hand_mTc = pose_dataset.get_mTc(img_idx)
+        obj_verts3d, obj_faces = pose_dataset.get_obj_verts_faces(img_idx)
+        data_gpu_gt['oriImage'] = img
+        data_gpu_gt['anno_verts'] = hand_verts3d
+        data_gpu_gt['anno_joints'] = hand_joints3d
+        data_gpu_gt['anno_poses'] = anno_poses
+    else:
+        hand_poses = np.array(samples.mano_params[1]['pose'],dtype=np.float32)
+        hand_shapes = np.array(samples.mano_params[1]['betas'],dtype=np.float32)
+        hand_mTc = np.array(samples.mano_params[1]['hTm'],dtype=np.float32)
+        obj_mesh = o3dio.read_triangle_mesh(samples.contactmap_filename)     # Includes object mesh and contact map embedded as vertex colors
+        obj_verts3d = np.array(obj_mesh.vertices, dtype=np.float32)     # Keep as floats since torch uses floats
+        obj_faces = np.array(obj_mesh.triangles,dtype=np.float32)
+
     """hand_gt"""
     #根据pose的前18维，重新生成had_vert和hand_joints
     hand_verts_gt,hand_joints3d_gt = run_mano_on_obman(hand_poses, hand_shapes , hand_mTc)
     gt_closed_faces = util.get_mano_closed_faces()
     gt_hand_contact , gt_obj_contact = gt_calc_dist_contact( obj_verts3d, obj_faces, hand_verts_gt, gt_closed_faces, hand=True, obj=False)
-    data_gpu_gt['oriImage'] = img
-    data_gpu_gt['anno_verts'] = hand_verts3d
-    data_gpu_gt['anno_joints'] = hand_joints3d
-    data_gpu_gt['anno_poses'] = anno_poses
     data_gpu_gt['hand_verts_gt'] = torch.from_numpy(hand_verts_gt).unsqueeze(0).cuda().float()
     data_gpu_gt['hand_joints3d_gt'] = torch.from_numpy(hand_joints3d_gt).unsqueeze(0).cuda().float()
     data_gpu_gt['hand_pose_gt'] = torch.from_numpy(hand_poses).unsqueeze(0).cuda()
@@ -143,11 +152,15 @@ def prepare_param(pose_dataset,img_idx):
     data_gpu_gt["obj_faces"] = obj_faces 
 
     """hand_aug"""
-    aug_trans = 0.005
+    aug_trans = 0.05
     aug_rot = 0.1
-    aug_pca = 1.3
+    aug_pca = 0.5
     aug_t = np.random.randn(3) * aug_trans
-    aug_p = np.concatenate((np.random.randn(3) * aug_rot, np.random.randn(45) * aug_pca)).astype(np.float32)
+    if samples == None:
+        aug_p = np.concatenate((np.random.randn(3) * aug_rot, np.random.randn(45) * aug_pca)).astype(np.float32)
+    else:
+        aug_p = np.concatenate((np.random.randn(3) * aug_rot, np.random.randn(15) * aug_pca)).astype(np.float32)
+
     #perturbed pose
     tmp_hand_pose = np.array(hand_poses)
     tmp_hand_pose += aug_p
@@ -208,33 +221,6 @@ def load_from_batch(hand_beta, hand_pose, hand_mTc, obj_mesh):
     return data_gpu_out
 
 
-def trans_pkl_from_contactpose(samples):
-    data_gpu_gt = dict()
-    data_gpu = dict()
-
-    """data_gpu_gt"""
-    data_gpu_gt['hand_verts_gt'] = torch.from_numpy(samples['ho_gt'].hand_verts).unsqueeze(0).cuda().float()
-    data_gpu_gt['hand_joints3d_gt'] = torch.from_numpy(samples['ho_gt'].hand_joints).unsqueeze(0).cuda().float()
-    data_gpu_gt['hand_pose_gt'] = torch.from_numpy(samples['ho_gt'].hand_pose).unsqueeze(0).cuda()
-    data_gpu_gt['hand_beta_gt'] = torch.from_numpy(samples['ho_gt'].hand_beta).unsqueeze(0).cuda()
-    data_gpu_gt['hand_mTc_gt'] = torch.from_numpy(samples['ho_gt'].hand_mTc).unsqueeze(0).cuda()
-
-    """ data_gpu """
-    data_gpu['hand_verts_aug'] = torch.from_numpy(samples['ho_aug'].hand_verts).unsqueeze(0).cuda().float()    #
-    data_gpu['hand_joints3d_aug'] = torch.from_numpy(samples['ho_aug'].hand_joints).unsqueeze(0).cuda().float()
-    data_gpu['hand_pose_aug'] = torch.from_numpy(samples['ho_aug'].hand_pose).unsqueeze(0).cuda().float()  #
-    data_gpu['hand_beta_aug'] = torch.from_numpy(samples['ho_aug'].hand_beta).unsqueeze(0).cuda().float()   #
-    data_gpu['hand_mTc_aug'] = torch.from_numpy(samples['ho_aug'].hand_mTc).unsqueeze(0).cuda().float()
-    data_gpu['hand_feats_aug'] = torch.from_numpy(samples['hand_feats_aug']).unsqueeze(0).cuda().float()
-    data_gpu['obj_feats_aug'] = torch.from_numpy(samples['obj_feats_aug']).unsqueeze(0).cuda().float()
-    data_gpu ['obj_sampled_idx'] =  torch.from_numpy(samples['obj_sampled_idx']).unsqueeze(0).cuda().long()
-
-    data_gpu['mesh_aug'] =  Meshes(verts=[torch.Tensor(samples['ho_aug'].obj_verts).cuda()], faces=[torch.Tensor(samples['ho_aug'].obj_faces).cuda()])
-    data_gpu['obj_normals_aug'] = pytorch3d.structures.utils.list_to_padded([torch.Tensor(samples['ho_aug'].obj_normals).cuda()], pad_value=-1)
-    data_gpu['obj_sampled_verts_aug'] =  torch.Tensor(samples['ho_aug'].obj_verts)[torch.Tensor(samples['obj_sampled_idx']).long(), :].unsqueeze(0).cuda().float()
-
-    return data_gpu_gt , data_gpu
-
 def run_opt_on_obman(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') 
     model = get_newest_checkpoint()   #get pre-defined model weight ,and model is DeepContactNet
@@ -242,15 +228,14 @@ def run_opt_on_obman(args):
     model.eval()
     all_data = list()
 
-    samples =  pickle.load(open('data/perturbed_contactpose_train.pkl','rb'))
     pose_dataset = load_obman(args)
     for i in tqdm(range(0, args.img_nb, args.img_step)):
+        samples = get_all_contactpose_samples()[i][3]
         batch_size = 1
         img_idx = args.img_idx + i
-
 # step1:
-        data_gpu_gt , data_gpu = prepare_param(pose_dataset,img_idx)
-        #data_gpu_gt ,data_gpu = trans_pkl_from_contactpose(samples[i])
+        #data_gpu_gt , data_gpu = prepare_param(pose_dataset,img_idx,samples=samples)  #contactpose
+        data_gpu_gt , data_gpu = prepare_param(pose_dataset,img_idx)                  #obman
         with torch.no_grad():
             """ Code related to section 3.2, to estimate the contact on hand and on object"""
             network_out = model(data_gpu['hand_verts_aug'], data_gpu['hand_feats_aug'], data_gpu['obj_sampled_verts_aug'], data_gpu['obj_feats_aug'])
@@ -318,6 +303,7 @@ def run_opt_on_obman(args):
             out_pose, out_mTc, obj_rot, opt_state = result
 
         data_gpu_out = load_from_batch(data_gpu['hand_beta_aug'], out_pose, out_mTc, data_gpu['mesh_aug'])
+        util.save_obj(data_gpu_out['hand_verts_out'], 'C:/Users/zbh/Desktop/obman_mesh/'+ str(i) +'_hand_out.obj')
         all_data.append({'gt_ho': data_gpu_gt, 'in_ho': data_gpu, 'out_ho': data_gpu_out})
 
     out_file = './data/run_opt_on_obman_{}.pkl'.format(args.split)
