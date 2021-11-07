@@ -47,7 +47,7 @@ def run_contactopt(args):
     读取输入的设置：args，先使用DeepContact估计一个接触，然后对其进行优化，并保存为.pkl文件
     """
     print('Running split', args.split)
-    dataset = ContactDBDataset(args.test_dataset, min_num_cont=args.min_cont)  #数据读取
+    dataset = ContactDBDataset(args.train_dataset, min_num_cont=args.min_cont)  #数据读取
     shuffle = args.vis or args.partial > 0 #判断是否重新打乱数据
     print('Shuffle:', shuffle)
     test_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=shuffle, num_workers=6, collate_fn=ContactDBDataset.collate_fn)
@@ -121,6 +121,7 @@ def run_contactopt(args):
                 # print('Loss, re', re_it, loss_val)
                 # print('Best loss', best_loss)
         else:
+            mano_model = ManoLayer(mano_root='./mano/models', use_pca=True, ncomps=args.ncomps, side='right', flat_hand_mean=False).to(device)
             result = optimize_pose(mano_model, data_gpu, hand_contact_target, obj_contact_target, n_iter=args.n_iter, lr=args.lr,
                                    w_cont_hand=args.w_cont_hand, w_cont_obj=1, save_history=args.vis, ncomps=args.ncomps,
                                    w_cont_asym=args.w_cont_asym, w_opt_trans=args.w_opt_trans, w_opt_pose=args.w_opt_pose,
