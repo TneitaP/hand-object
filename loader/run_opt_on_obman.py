@@ -4,7 +4,7 @@ import torch
 import numpy as np
 from tqdm import tqdm
 import pickle
-from load_obman import load_obman
+from loader.load_obman import load_obman
 from contactopt import util
 from contactopt.run_contactopt import get_newest_checkpoint
 from contactopt.optimize_pose import optimize_obman_pose, optimize_pose

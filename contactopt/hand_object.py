@@ -186,6 +186,9 @@ class HandObject:
     def run_mano(self):
         """Runs forward_mano, computing the hand vertices and joints based on pose/beta parameters.
          Handles numpy-pytorch-numpy conversion"""
+        np.savetxt('C:/Users/zbh/Desktop/test/hand_pose.txt',self.hand_pose)
+        np.savetxt('C:/Users/zbh/Desktop/test/hand_beta.txt',self.hand_beta)
+        np.savetxt('C:/Users/zbh/Desktop/test/hand_mTc.txt',self.hand_mTc)
         if self.hand_pose.shape[0] == 48:   # Special case when we're loading GT honnotate
             mano_model = ManoLayer(mano_root='./mano/models', joint_rot_mode="axisang", use_pca=False, center_idx=None, flat_hand_mean=True)
         else:   # Everything else
@@ -197,7 +200,8 @@ class HandObject:
         mano_verts, mano_joints = util.forward_mano(mano_model, pose_tensor, beta_tensor, [tform_tensor])
         self.hand_verts = mano_verts.squeeze().detach().numpy()
         self.hand_joints = mano_joints.squeeze().detach().numpy()
-
+        np.savetxt('C:/Users/zbh/Desktop/test/hand_verts.txt',self.hand_verts) 
+        np.savetxt('C:/Users/zbh/Desktop/test/hand_joints.txt',self.hand_joints) 
     def generate_pointnet_features(self, obj_sampled_idx):
         """Calculates per-point features for pointnet. DeepContact uses these features"""
         obj_mesh = Meshes(verts=[torch.Tensor(self.obj_verts)], faces=[torch.Tensor(self.obj_faces)])
