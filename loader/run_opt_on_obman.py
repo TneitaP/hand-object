@@ -13,6 +13,8 @@ from contactopt.optimize_pose import optimize_obman_pose, optimize_pose
 from contactopt.arguments import run_contactopt_on_obman_parse_args
 from manopth.manolayer import ManoLayer
 from open3d import io as o3dio
+import json 
+
 def generate_pointnet_features(necessary_param, obj_sampled_idx):
     """Calculates per-point features for pointnet. DeepContact uses these features"""
     obj_mesh = Meshes(verts=[torch.Tensor(necessary_param["obj_verts"])], faces=[torch.Tensor(necessary_param["obj_faces"])])
@@ -116,10 +118,16 @@ def prepare_param(pose_dataset=None, img_idx=None, samples=None):
         hand_shapes = pose_dataset.get_shape(img_idx)
         hand_mTc = pose_dataset.get_mTc(img_idx)
         obj_verts3d, obj_faces = pose_dataset.get_obj_verts_faces(img_idx)
+        cam_intr = np.array([[480., 0., 128.], [0., 480., 128.],
+                            [0., 0., 1.]]).astype(np.float32)
+        cam_extr = np.array([[1., 0., 0., 0.], [0., -1., 0., 0.],
+                            [0., 0., -1., 0.]]).astype(np.float32)
         data_gpu_gt['oriImage'] = img
         data_gpu_gt['anno_verts'] = hand_verts3d
         data_gpu_gt['anno_joints'] = hand_joints3d
         data_gpu_gt['anno_poses'] = anno_poses
+        data_gpu_gt['cam_extr'] = cam_extr
+        data_gpu_gt['cam_intr'] = cam_intr
     else:
         hand_poses = np.array(samples.mano_params[1]['pose'],dtype=np.float32)
         hand_shapes = np.array(samples.mano_params[1]['betas'],dtype=np.float32)
@@ -133,7 +141,11 @@ def prepare_param(pose_dataset=None, img_idx=None, samples=None):
     hand_verts_gt,hand_joints3d_gt = run_mano_on_obman(hand_poses, hand_shapes , hand_mTc)
     gt_closed_faces = util.get_mano_closed_faces()
     gt_hand_contact , gt_obj_contact = gt_calc_dist_contact( obj_verts3d, obj_faces, hand_verts_gt, gt_closed_faces, hand=True, obj=False)
-    data_gpu_gt['hand_verts_gt'] = torch.from_numpy(hand_verts_gt).unsqueeze(0).cuda().float()
+    hand_verts_gt = data_gpu_gt['cam_extr'][:3, :3].dot(hand_verts_gt.transpose()).transpose()
+    #data_gpu_gt['hand_verts_gt'] = torch.from_numpy(hand_verts_gt).unsqueeze(0).cuda().float()
+    with open("../../HOinter_data/Obman/Scene_inMeter_test/test_00000000_02992529_6682bf5d835701abe1a8044199c77d84_1/paramano_right.json","r") as f:
+        pose = json.load(f)
+    
     data_gpu_gt['hand_joints3d_gt'] = torch.from_numpy(hand_joints3d_gt).unsqueeze(0).cuda().float()
     data_gpu_gt['hand_pose_gt'] = torch.from_numpy(hand_poses).unsqueeze(0).cuda()
     data_gpu_gt['hand_beta_gt'] = torch.from_numpy(hand_shapes).unsqueeze(0).cuda()
@@ -153,8 +165,8 @@ def prepare_param(pose_dataset=None, img_idx=None, samples=None):
 
     """hand_aug"""
     aug_trans = 0.05
-    aug_rot = 0.1
-    aug_pca = 0.5
+    aug_rot = 0.1  #0.1
+    aug_pca = 0.5   #0.5
     aug_t = np.random.randn(3) * aug_trans
     if samples == None:
         aug_p = np.concatenate((np.random.randn(3) * aug_rot, np.random.randn(45) * aug_pca)).astype(np.float32)
@@ -181,6 +193,7 @@ def prepare_param(pose_dataset=None, img_idx=None, samples=None):
     data_gpu['obj_faces_aug'] = data_gpu_gt["obj_faces"]
     data_gpu['obj_verts_aug'] = data_gpu_gt["obj_verts"]
     hand_verts_aug,hand_joints_aug = run_mano_on_obman(hand_pose_aug,hand_beta_aug,hand_mTc_aug)
+    hand_verts_aug = data_gpu_gt['cam_extr'][:3, :3].dot(hand_verts_aug.transpose()).transpose()
     data_gpu['hand_verts_aug'] = torch.from_numpy(hand_verts_aug).unsqueeze(0).cuda().float()
     data_gpu['hand_joints3d_aug'] = torch.from_numpy(hand_joints_aug).unsqueeze(0).cuda().float()
 
@@ -229,13 +242,14 @@ def run_opt_on_obman(args):
     all_data = list()
 
     pose_dataset = load_obman(args)
-    for i in tqdm(range(0, args.img_nb, args.img_step)):
+    for i in tqdm(range(7, args.img_nb, args.img_step)):
         samples = get_all_contactpose_samples()[i][3]
         batch_size = 1
         img_idx = args.img_idx + i
 # step1:
-        #data_gpu_gt , data_gpu = prepare_param(pose_dataset,img_idx,samples=samples)  #contactpose
+        # data_gpu_gt , data_gpu = prepare_param(pose_dataset,img_idx,samples=samples)  #contactpose
         data_gpu_gt , data_gpu = prepare_param(pose_dataset,img_idx)                  #obman
+        
         with torch.no_grad():
             """ Code related to section 3.2, to estimate the contact on hand and on object"""
             network_out = model(data_gpu['hand_verts_aug'], data_gpu['hand_feats_aug'], data_gpu['obj_sampled_verts_aug'], data_gpu['obj_feats_aug'])
@@ -254,16 +268,17 @@ def run_opt_on_obman(args):
 
             for re_it in range(args.rand_re):
                 # Add noise to hand translation and rotation
-                data_gpu['hand_mTc_aug'] = mtc_orig.detach().clone()
-                random_rot_mat = pytorch3d.transforms.euler_angles_to_matrix(torch.randn((batch_size, 3), device=device) * args.rand_re_rot / 180 * np.pi, 'ZYX')
-                # Convert rotations given as Euler angles in radians to rotation matrices.
-                data_gpu['hand_mTc_aug'][:, :3, :3] = torch.bmm(random_rot_mat, data_gpu['hand_mTc_aug'][:, :3, :3])#矩阵乘法
-                data_gpu['hand_mTc_aug'][:, :3, 3] += torch.randn((batch_size, 3), device=device) * args.rand_re_trans
-                util.save_obj(data_gpu_gt['hand_verts_gt'].squeeze(0).detach().cpu().numpy(), 'C:/Users/zbh/Desktop/obman_mesh/'+ str(i) +'_hand_gt.obj')
-                util.save_obj(data_gpu_gt['obj_verts'], 'C:/Users/zbh/Desktop/obman_mesh/'+ str(i) +'_obj_gt.obj')
-                util.save_obj(data_gpu['hand_verts_aug'].squeeze(0).detach().cpu().numpy(), 'C:/Users/zbh/Desktop/obman_mesh/'+ str(i) +'_hand_in.obj')
+                # data_gpu['hand_mTc_aug'] = mtc_orig.detach().clone()
+                # random_rot_mat = pytorch3d.transforms.euler_angles_to_matrix(torch.randn((batch_size, 3), device=device) * args.rand_re_rot / 180 * np.pi, 'ZYX')
+                # # Convert rotations given as Euler angles in radians to rotation matrices.
+                # data_gpu['hand_mTc_aug'][:, :3, :3] = torch.bmm(random_rot_mat, data_gpu['hand_mTc_aug'][:, :3, :3])#矩阵乘法
+                # data_gpu['hand_mTc_aug'][:, :3, 3] += torch.randn((batch_size, 3), device=device) * args.rand_re_trans
                 #姿势优化
 #step 2
+                util.save_obj(data_gpu_gt['anno_verts'], 'C:/Users/zbh/Desktop/222/'+ str(i) +'_hand_anno.obj')
+                util.save_obj(data_gpu_gt['obj_verts'], 'C:/Users/zbh/Desktop/222/'+ str(i) +'_obj_gt.obj')
+                util.save_obj(data_gpu_gt['hand_verts_gt'].squeeze(0).detach().cpu().numpy(), 'C:/Users/zbh/Desktop/222/'+ str(i) +'_hand_gt.obj')
+                util.save_obj(data_gpu['hand_verts_aug'].squeeze(0).detach().cpu().numpy(), 'C:/Users/zbh/Desktop/222/'+ str(i) +'_hand_in.obj')
                 mano_model = ManoLayer(mano_root='./mano/models', use_pca=True, ncomps=args.ncomps, side='right', flat_hand_mean=True).to(device) #可能是flase
                 cur_result = optimize_pose(mano_model,data_gpu, hand_contact_target, obj_contact_target, n_iter=args.n_iter, lr=args.lr,
                                            w_cont_hand=args.w_cont_hand, w_cont_obj=1, save_history=args.vis, ncomps=args.ncomps,
@@ -322,6 +337,7 @@ if __name__ == "__main__":
                     'n_iter': 250,
                     'w_cont_hand': 2.0,
                     'sharpen_thresh': -1,
+#step3
                     'ncomps': 45,
                     'w_cont_asym': 2,
                     'w_opt_trans': 0.3,

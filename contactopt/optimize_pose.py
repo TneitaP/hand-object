@@ -134,7 +134,7 @@ def optimize_pose(mano_model,data, hand_contact_target, obj_contact_target, n_it
         tform_out = util.translation_to_tform(opt_vector[:, ncomps+3:ncomps+6] * w_opt_trans)
 
         hand_verts, hand_joints = util.forward_mano(mano_model, mano_pose_out, data['hand_beta_aug'], [data['hand_mTc_aug'], tform_out])   # 2.2ms
-        util.save_obj(hand_verts.squeeze(0).detach().cpu().numpy(), 'C:/Users/zbh/Desktop/obman_mesh/one/'+ str(it) +'_hand_opti.obj')
+        util.save_obj(hand_verts.squeeze(0).detach().cpu().numpy(), 'C:/Users/zbh/Desktop/222/one/'+ str(it) +'_hand_opti.obj')
         if contact_norm_method != 0 and not caps_on_hand:
             with torch.no_grad():   # We need to calculate hand normals if using more complicated methods
                 mano_mesh = Meshes(verts=hand_verts, faces=mano_model.th_faces.repeat(batch_size, 1, 1))
