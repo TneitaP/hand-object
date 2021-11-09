@@ -171,9 +171,9 @@ def as_mesh(scene_or_mesh):
         mesh = scene_or_mesh
     return mesh
 
-ShapeNetRoot = r"F:\HOinter_data\ShapeNetCore"
-ObManRoot = r"F:\HOinter_data\Obman\downloads\obman\train\meta"
-saveRoot = r"F:\HOinter_data\Obman\Scene_inMeter"
+ShapeNetRoot = R"F:\HOinter_data\ShapeNetCore"
+ObManRoot = R"F:\HOinter_data\Obman\downloads\obman\test\meta"
+saveRoot = R"F:\HOinter_data\Obman\Scene_inMeter"
 
 
 if __name__ == "__main__":

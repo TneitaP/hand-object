@@ -47,12 +47,12 @@ def class_to_val(raw_scores):
     return val
 
 
-def forward_mano(mano_model, pose, beta, tforms):
+def forward_mano(mano_model, pose, beta, tforms, mano_trans = torch.zeros(3)):
     """Forward mano pass, MANO params to mesh"""
     device = pose.device
     batch_size = pose.shape[0]
 
-    verts, joints = mano_model(pose, beta)
+    verts, joints = mano_model(pose, beta, mano_trans)
     
     verts_homo = torch.cat((verts / 1000, torch.ones(batch_size, verts.shape[1], 1, device=device)), 2)
     joints_homo = torch.cat((joints / 1000, torch.ones(batch_size, joints.shape[1], 1, device=device)), 2)

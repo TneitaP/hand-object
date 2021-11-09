@@ -82,7 +82,7 @@ def optimize_obman_pose(mano_model, data, hand_contact_target, obj_contact_targe
             """ loss = Eh + Eo + Epen """
             pen_cost = calculate_contact.calculate_penetration_cost(hand_verts, hand_normals, data['obj_sampled_verts_aug'], obj_normals_sampled, is_thin, contact_norm_method)
             loss += pen_cost.mean(dim=1) * w_pen_cost
-
+        print(loss)
         out_dict = {'loss': loss.detach().cpu()}
         if save_history:
             out_dict['hand_verts'] = hand_verts.detach().cpu()#.numpy()
@@ -98,7 +98,7 @@ def optimize_obman_pose(mano_model, data, hand_contact_target, obj_contact_targe
     tform_full_out = util.aggregate_tforms([data['hand_mTc_aug'], tform_out])
     return mano_pose_out, tform_full_out, obj_rot_mat, opt_state
 
-def optimize_pose(mano_model,data, hand_contact_target, obj_contact_target, n_iter=250, lr=0.01, w_cont_hand=2, w_cont_obj=1,
+def optimize_pose(mano_model,data, hand_contact_target, obj_contact_target,trans = torch.zeros(3), n_iter=250, lr=0.01, w_cont_hand=2, w_cont_obj=1,
                   save_history=False, ncomps=15, w_cont_asym=2, w_opt_trans=0.3, w_opt_pose=1, w_opt_rot=1,
                   caps_top=0.0005, caps_bot=-0.001, caps_rad=0.001, caps_on_hand=False,
                   contact_norm_method=0, w_pen_cost=600, w_obj_rot=0, pen_it=0):
@@ -132,8 +132,10 @@ def optimize_pose(mano_model,data, hand_contact_target, obj_contact_target, n_it
         except RuntimeError:
             mano_pose_out[:, :48] += data['hand_pose_aug']
         tform_out = util.translation_to_tform(opt_vector[:, ncomps+3:ncomps+6] * w_opt_trans)
-
-        hand_verts, hand_joints = util.forward_mano(mano_model, mano_pose_out, data['hand_beta_aug'], [data['hand_mTc_aug'], tform_out])   # 2.2ms
+        #tform_out[0][:3,3]+=trans.squeeze(0)
+        transRT = torch.eye(4).unsqueeze(0).cuda()
+        transRT[0][:3,3] += trans.squeeze(0)
+        hand_verts, hand_joints = util.forward_mano(mano_model, mano_pose_out, data['hand_beta_aug'], [transRT , data['hand_mTc_aug'], tform_out])   # 2.2ms
         util.save_obj(hand_verts.squeeze(0).detach().cpu().numpy(), 'C:/Users/zbh/Desktop/222/one/'+ str(it) +'_hand_opti.obj')
         if contact_norm_method != 0 and not caps_on_hand:
             with torch.no_grad():   # We need to calculate hand normals if using more complicated methods
